@@ -9,6 +9,8 @@ written by Ammon Perkes (perkes.ammon@gmail.com) at University of Pennsylvania
 import sys, os
 import numpy as np
 from  matplotlib as import pyplot as plt
+#External .py dependencies, contatining strategies and sims
+import SimStrategies,SimStats
 
 #Default starting parameters: 
 default_strat_m = 0
@@ -39,9 +41,9 @@ class Male_bird(object):
         self.resources = resources
 ##      Seed self investment, and normalize for resources
 #   Functions to adjust and get info. 
-### NOTE: This is where males apply strategy
+### NOTE: This is where males apply strategy, strategies are saved externally
     def respond(history):
-       new_investment = strategies.choose(self.strategy, resources, history)
+       new_investment = SimStrategies.choose(self.strategy, resources, history)
        return new_investment 
 
 #Class of female cowbirds: 
@@ -58,13 +60,13 @@ class Female_bird(object):
 ### NOTE: This is where strategy is applied
         investment = self.investment
         resources = self.resources
-        new_response = strategies.choose(self.strategy,self.resources, history)
+        new_response = SimStrategies.choose(self.strategy,self.resources, history)
         return new_response
 #
 # Function to plot the response curve of a male or female bird (which is contained in their class)
 def plot_response(bird):
     strategy = bird.strategy
-    function = strategies.function(strategy)
+    function = SimStrategies.function(strategy)
     plt.plot(function)
     plt.show()
 #NOTE: This is probably wrong, go back and check it. 
@@ -174,7 +176,8 @@ def male_success(params):
 #Function plotting history and outcome in interesting ways
 def plot_history(history):
 
-def run_simulation(trials = TRIALS, turns = TURNS, n_males = N_MALES,n_females = N_FEMALES,strat_males = None, strat_females = None, res_males = None, res_females = None)
+def run_trial(turns = TURNS, n_males = N_MALES,n_females = N_FEMALES,strat_males = None, strat_females = None, res_males = None, res_females = None):
+## Initialize full record...
 ## initialize history
     history = History(turns,n_males,n_females)
 ## give values to strats and res if none are given:
@@ -198,7 +201,15 @@ def run_simulation(trials = TRIALS, turns = TURNS, n_males = N_MALES,n_females =
         turn = aviary.respond(history)
         history.record(turn)
     return history
-        
+       
+def run_simulation(trials = TRIALS, turns = TURNS, n_males = N_MALES, n_females = N_FEMALES, strat_males = None, strat_females = None, res_males = None, res_females = None):
+    record = [0 for tr in range(trials)]
+    for tr in range(trials):
+        history = run_trial(turns, n_males, n_females, strat_males, strat_females, res_males, res_females)
+        record[tr] = SimStats.get_stats(history) 
+# For tidiness, stats is saved in a seperate file
+    return record
+    
 # Mini function to get birds
 def get_birds():
     print "Default males: " + str(N_MALES)
@@ -331,7 +342,7 @@ def menu():
         if choice == 0:
             run_simulation()
         elif choice == 1:
-            run_simulation(trials = 1)
+            run_trial()
         elif choice == 2:
             build_simulation()
         elif choice == 9
