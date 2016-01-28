@@ -75,10 +75,24 @@ class History(object):
 ## Initialize the matrix for the whole sim (save a bunch of time)
         self.invest_matrix = np.zeros([turns,males,females])
         self.reward_matrix = np.zeros([turns,males,females])
+        self.current_turn = 0
     def record(turn):
+        self.current_turn = turn.n
         self.invest_matrix[turn.n] = turn.invest
         self.reward_matrix[turn.n] = turn.reward
+    def initialize(initial_conditions == None): #set first investment conditions
+        self.invest_matrix[0] == np.random.random((males,females))
+## Initialize the matrix, then normalize either to 1 or to some matrix (i.e. male resources, or some skew)
+## Normalizing is a little tricky due to the males first convention, as follows:
+        if initial_conditions == None:
+            self.invest_matrix[0] == self.invest_matrix[0] / self.invest_matrix[0].sum(1).reshape(males,1)
+        else:
+            self.invest_matrix[0] == self.invest_matrix[0] * initial_conditions / self.invest_matrix[0].sum(1).reshape(males,1) 
+    def advance():
+        self.current_turn = self.current_turn + 1
+             
 
+"""
 #Object containing turn
 class Turn(object):
     def __init__(self, n, n_males, n_females, last_turn = None):
@@ -93,11 +107,14 @@ class Turn(object):
     def change_invest(male,female,amount):
         self.invest[male,female] += amount
     def change_reward(male,female,amount):
+        if initial_conditions == None:
+            self.invest_matrix[0] ==a
         self.reward[male,female] += amount
     def set_invest(male,female,amount):
         self.invest[male,female] = amount
     def set_reward(male,female,amount):
         self.reward[male,female] = amount
+"""
 
 # Object containing all the birds. Cute, eh? 
 class Aviary(object):
@@ -140,6 +157,17 @@ def run_simulation(trials = TRIALS, turns = TURNS, n_males = N_MALES,n_females =
         res_females = [RES_F for n in range(n_females)]
 # Build an aviary using the given parameters
     aviary = Aviary(n_males, n_females, strat_males, strat_females, res_males, res_females)
+# Initialize initial investment (based on male resources, if specified)
+    history.initialize()
+# Get first female response:
+    history.reward_matrix[0] = aviary.frespond(history)
+    history.advance()
+# For every turn, calculate response and record it in history.
+    for t in range(1,turns):
+        turn = aviary.respond(history)
+        history.record(turn)
+    
+"""
 # Initialize first turn
     turn = Turn(0,aviary.males,aviary.females)
     turn.initialize()
@@ -147,6 +175,7 @@ def run_simulation(trials = TRIALS, turns = TURNS, n_males = N_MALES,n_females =
     for t in range(1,turns):
         turn = (t, aviary.males,aviary.females,turn)
         turn.run()
+"""
 
 # Mini function to get birds
 def get_birds():
