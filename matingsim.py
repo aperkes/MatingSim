@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
-""" Simulation to analyze mating dynamics of cowbirds (or more generally, monogamy in the absence of parental care) 
+"""
+Simulation to analyze mating dynamics of cowbirds (or more generally, monogamy in the absence of parental care) 
 written by Ammon Perkes (perkes.ammon@gmail.com) at University of Pennsylvania
 2016
 """ 
@@ -71,28 +72,29 @@ def plot_response(bird):
 #Array type object containing cowbirds, allowing cleverness: 
 #Keep history of investment, reward for both males and females
 class History(object):
-    def __init__(self, turns, males, females):
+    def __init__(self, turns, n_males, n_females):
 ## Initialize the matrix for the whole sim (save a bunch of time)
-        self.invest_matrix = np.zeros([turns,males,females])
-        self.reward_matrix = np.zeros([turns,males,females])
+        self.invest_matrix = np.zeros([turns,n_males,n_females])
+        self.reward_matrix = np.zeros([turns,n_males,n_females])
+        self.n_males = n_males
+        self.n_females = n_females
         self.current_turn = 0
     def record(turn):
         self.current_turn = turn.n
         self.invest_matrix[turn.n] = turn.invest
         self.reward_matrix[turn.n] = turn.reward
     def initialize(initial_conditions == None): #set first investment conditions
-        self.invest_matrix[0] == np.random.random((males,females))
+        self.invest_matrix[0] == np.random.random((n_males,n_females))
 ## Initialize the matrix, then normalize either to 1 or to some matrix (i.e. male resources, or some skew)
 ## Normalizing is a little tricky due to the males first convention, as follows:
         if initial_conditions == None:
-            self.invest_matrix[0] == self.invest_matrix[0] / self.invest_matrix[0].sum(1).reshape(males,1)
+            self.invest_matrix[0] == self.invest_matrix[0] / self.invest_matrix[0].sum(1).reshape(n_males,1)
         else:
-            self.invest_matrix[0] == self.invest_matrix[0] * initial_conditions / self.invest_matrix[0].sum(1).reshape(males,1) 
+            self.invest_matrix[0] == self.invest_matrix[0] * initial_conditions / self.invest_matrix[0].sum(1).reshape(n_males,1) 
     def advance():
         self.current_turn = self.current_turn + 1
              
 
-"""
 #Object containing turn
 class Turn(object):
     def __init__(self, n, n_males, n_females, last_turn = None):
@@ -114,7 +116,7 @@ class Turn(object):
         self.invest[male,female] = amount
     def set_reward(male,female,amount):
         self.reward[male,female] = amount
-"""
+
 
 # Object containing all the birds. Cute, eh? 
 class Aviary(object):
@@ -129,10 +131,39 @@ class Aviary(object):
 # Build the male and female lists in the aviary. 
         self.males = [Male_bird(num, strat_males[num], res_males[num] for num in range(n_males))]
         self.females = [Female_bird(num, strat_females[num], res_females[num] for num in range(n_females))]
-#NOTE: will I need to give funcitons to change the birds, or will they change automatically? I feel like python is so pointer based that it will be hard to alter it...
+    def respond(history):
+# Initialize Turn
+        turn = Turn(history.current_turn + 1,history.n_males,history.n_females)
+# Initialize investment matrix
+        invest = np.zeros([n_males,n_females])
+# For each male, set new investment 
+        for m in range(n_males):
+            invest[m] = males[m].respond(history)            
+# Save investment matrix to the turn
+        turn.invest = invest
+# As above, but for reward and females
+        reward = np.zeros([n_males,n_femaes])
+        for f in range(n_females):
+            reward[f] = females[f].respond(history)
+        turn.reward = reward
+        return turn
+
+# As above, individual responses for male and female. I could wrap this into the respond function to save space, but I actually like the clarity. 
+    def mrespond(history):
+        invest = np.zeros([n_males,n_females])
+        for m in range(n_males):
+            invest[m] = males[m].respond(history)
+        return invest
+    def frespond(history):
+        reward = np.zeros([n_males,n_femaes])
+        for f in range(n_females):
+            reward[f] = females[f].respond(history)
+        turn.reward = reward
+#Will I need to give funcitons to change the birds, or will they change automatically? I feel like python is so pointer based that it will be hard to alter it...
 # Actually, it's very easy, in fact, because it's a pointer, it alters the original instance, not merely the aviary object.
 #Function determining reproductve output: 
 #This is not technically important for the simulation, but it determines which strategy is best, which is important
+
 def female_success(params):
 
     return success
@@ -166,17 +197,8 @@ def run_simulation(trials = TRIALS, turns = TURNS, n_males = N_MALES,n_females =
     for t in range(1,turns):
         turn = aviary.respond(history)
         history.record(turn)
-    
-"""
-# Initialize first turn
-    turn = Turn(0,aviary.males,aviary.females)
-    turn.initialize()
-# Run turns for length of simulation
-    for t in range(1,turns):
-        turn = (t, aviary.males,aviary.females,turn)
-        turn.run()
-"""
-
+    return history
+        
 # Mini function to get birds
 def get_birds():
     print "Default males: " + str(N_MALES)
