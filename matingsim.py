@@ -8,7 +8,7 @@ written by Ammon Perkes (perkes.ammon@gmail.com) at University of Pennsylvania
 
 import sys, os
 import numpy as np
-from  matplotlib as import pyplot as plt
+from  matplotlib import pyplot as plt
 #External .py dependencies, contatining strategies and sims
 import SimStrategies,SimStats
 
@@ -43,7 +43,7 @@ class Male_bird(object):
 #   Functions to adjust and get info. 
 ### NOTE: This is where males apply strategy, strategies are saved externally
     def respond(history):
-       new_investment = SimStrategies.choose(self.strategy, resources, history)
+       new_investment = SimStrategies.choose(self.strategy, self.resources, history, self.num)
        return new_investment 
 
 #Class of female cowbirds: 
@@ -78,6 +78,7 @@ class History(object):
 ## Initialize the matrix for the whole sim (save a bunch of time)
         self.invest_matrix = np.zeros([turns,n_males,n_females])
         self.reward_matrix = np.zeros([turns,n_males,n_females])
+        self.turns = turns
         self.n_males = n_males
         self.n_females = n_females
         self.current_turn = 0
