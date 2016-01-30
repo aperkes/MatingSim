@@ -27,7 +27,7 @@ global STRAT_M, STRAT_F, RES_M, RES_F, A, K, BIRDS, TURNS, TRIALS
 RES_M = default_res_m
 RES_F = default_res_f
 N_MALES = default_males
-N_FEMALES = defaul_females
+N_FEMALES = default_females
 TURNS = default_turns
 TRIALS = default_trials
 
@@ -86,7 +86,7 @@ class History(object):
         self.current_turn = turn.n
         self.invest_matrix[turn.n] = turn.invest
         self.reward_matrix[turn.n] = turn.reward
-    def initialize(initial_conditions == None): #set first investment conditions
+    def initialize(initial_conditions = None): #set first investment conditions
         self.invest_matrix[0] == np.random.random((n_males,n_females))
 ## Initialize the matrix, then normalize either to 1 or to some matrix (i.e. male resources, or some skew)
 ## Normalizing is a little tricky due to the males first convention, as follows:
@@ -123,7 +123,7 @@ class Turn(object):
 
 # Object containing all the birds. Cute, eh? 
 class Aviary(object):
-    def __init__(self, n_males, n_females, strat_males, strat_females, res_males, res_females)
+    def __init__(self, n_males, n_females, strat_males, strat_females, res_males, res_females):
 # Initialize some parameters:
         self.n_males = n_males
         self.n_females = n_females
@@ -132,8 +132,8 @@ class Aviary(object):
         self.res_males = res_males
         self.res_females = res_females
 # Build the male and female lists in the aviary. 
-        self.males = [Male_bird(num, strat_males[num], res_males[num] for num in range(n_males))]
-        self.females = [Female_bird(num, strat_females[num], res_females[num] for num in range(n_females))]
+        self.males = [Male_bird(num, strat_males[num], res_males[num]) for num in range(n_males)]
+        self.females = [Female_bird(num, strat_females[num], res_females[num]) for num in range(n_females)]
     def respond(history):
 # Initialize Turn
         turn = Turn(history.current_turn + 1,history.n_males,history.n_females)
@@ -174,8 +174,6 @@ def female_success(params):
 def male_success(params):
 
     return success
-#Function plotting history and outcome in interesting ways
-def plot_history(history):
 
 def run_trial(turns = TURNS, n_males = N_MALES,n_females = N_FEMALES,strat_males = None, strat_females = None, res_males = None, res_females = None):
 ## Initialize full record...
@@ -211,6 +209,22 @@ def run_simulation(trials = TRIALS, turns = TURNS, n_males = N_MALES, n_females 
 # For tidiness, stats is saved in a seperate file
     return record
     
+#Function plotting history and outcome in interesting ways
+def show_his_stats(history):
+    stats = SimStats.get_stats(history)
+    for stat in stats:
+        stat.print_stat()
+        stat.plot_stat()
+        raw_input('press enter to continue...')
+
+#Function for plotting a full simulation
+def show_record_stats(record):
+    r_stats = rec_stats(record)
+    for stat in r_stats:
+        stat.print_stat()
+        stat.plot_stat()
+        raw_input('press enter to continue...')
+
 # Mini function to get birds
 def get_birds():
     print "Default males: " + str(N_MALES)
@@ -288,7 +302,7 @@ def get_resources(n_males = N_MALES, n_females = N_FEMALES):
     m_res = m_res.split(',')
     m_res = map(int, m_res)
     if len(m_res) == 1:
-        m_res = * n_males
+        m_res = m_res * n_males
     elif len(m_res) < n_males:
         for i in range(len(m_res), n_males):
             m_res[i] = 1
@@ -346,6 +360,6 @@ def menu():
             run_trial()
         elif choice == 2:
             build_simulation()
-        elif choice == 9
+        elif choice == 9:
             print "How about a nice game of chess?"
-    return choice 
+    return choice

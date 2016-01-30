@@ -40,7 +40,7 @@ def f_normalize(current_reward,resources,num):
     current_reward = current_reward * resources / transform
     return current_reward
 
-def relocate(output,amount,source,sink)
+def relocate(output,amount,source,sink):
     output[source] = output[source] - amount
     output[sink] = output[sink] + amount
     return output
