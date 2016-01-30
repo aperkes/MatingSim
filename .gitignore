@@ -1,0 +1,10 @@
+#Ignore File for mating sim: 
+
+#Ignore all copy files
+*.pyc
+
+#Ignore all swap files
+*.swp
+
+#Ignore test files
+*test.py

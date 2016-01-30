@@ -19,15 +19,15 @@ class Statistic(object):
         self.plot_type = plot_type
         self.x_axis = x_axis
         self.y_axis = y_axis
-    def print_stat():
+    def print_stat(self):
         print self.name
         print data
-    def plot_stat():
+    def plot_stat(self):
         if self.plot_type == 'plot':
             plt.plot(x_axis,y_axis)
         else:
             pass
-    def save_stat():
+    def save_stat(self):
         #Write output somehow...
         pass
 

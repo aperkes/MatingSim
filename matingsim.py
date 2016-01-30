@@ -24,12 +24,14 @@ default_trials = 10  # Number of trials per simulation
 
 #global parameters: 
 global STRAT_M, STRAT_F, RES_M, RES_F, A, K, BIRDS, TURNS, TRIALS
-RES_M = default_res_m
-RES_F = default_res_f
 N_MALES = default_males
 N_FEMALES = default_females
+RES_M = [default_res_m] * N_MALES
+RES_F = [default_res_f] * N_FEMALES
 TURNS = default_turns
 TRIALS = default_trials
+STRAT_M = [default_strat_m] * N_MALES
+STRAT_F = [default_strat_f] * N_MALES
 
 #Class of male cowbirds: 
 #Includes: Resources, investment matrix, reward matrix, functions to alter investment
@@ -42,7 +44,7 @@ class Male_bird(object):
 ##      Seed self investment, and normalize for resources
 #   Functions to adjust and get info. 
 ### NOTE: This is where males apply strategy, strategies are saved externally
-    def respond(history):
+    def respond(self,history):
        new_investment = SimStrategies.choose(self.strategy, self.resources, history, self.num)
        return new_investment 
 
@@ -50,17 +52,16 @@ class Male_bird(object):
 #Includes: resources, response matrix, reward matrix
 #Also includes choice function determining response
 class Female_bird(object):
-    def __init__(self, num, strategy = 1, resouces = 1):
+    def __init__(self, num, strategy = 1, resources = 1):
         self.num = num
         self.strategy = strategy
         self.resources = resources
 ##      Seed self  investment, NOTE that for females this is which males are investing in them, not vice versa
 #   Functions to adjust and get info. 
-    def respond(history):
+    def respond(self,history):
 ### NOTE: This is where strategy is applied
-        investment = self.investment
         resources = self.resources
-        new_response = SimStrategies.choose(self.strategy,self.resources, history)
+        new_response = SimStrategies.choose(self.strategy,self.resources, history, self.num)
         return new_response
 #
 # Function to plot the response curve of a male or female bird (which is contained in their class)
@@ -82,19 +83,19 @@ class History(object):
         self.n_males = n_males
         self.n_females = n_females
         self.current_turn = 0
-    def record(turn):
+    def record(self,turn):
         self.current_turn = turn.n
         self.invest_matrix[turn.n] = turn.invest
         self.reward_matrix[turn.n] = turn.reward
-    def initialize(initial_conditions = None): #set first investment conditions
-        self.invest_matrix[0] == np.random.random((n_males,n_females))
+    def initialize(self,initial_conditions = None): #set first investment conditions
+        self.invest_matrix[0] == np.random.random((self.n_males,self.n_females))
 ## Initialize the matrix, then normalize either to 1 or to some matrix (i.e. male resources, or some skew)
 ## Normalizing is a little tricky due to the males first convention, as follows:
         if initial_conditions == None:
-            self.invest_matrix[0] == self.invest_matrix[0] / self.invest_matrix[0].sum(1).reshape(n_males,1)
+            self.invest_matrix[0] == self.invest_matrix[0] / self.invest_matrix[0].sum(1).reshape(self.n_males,1)
         else:
-            self.invest_matrix[0] == self.invest_matrix[0] * initial_conditions / self.invest_matrix[0].sum(1).reshape(n_males,1) 
-    def advance():
+            self.invest_matrix[0] == self.invest_matrix[0] * initial_conditions / self.invest_matrix[0].sum(1).reshape(self.n_males,1) 
+    def advance(self):
         self.current_turn = self.current_turn + 1
              
 
@@ -109,21 +110,21 @@ class Turn(object):
         else:
             self.invest = np.zeros([n_males,n_females])
             self.reward = np.zeros([n_males,n_females])
-    def change_invest(male,female,amount):
+    def change_invest(self,male,female,amount):
         self.invest[male,female] += amount
-    def change_reward(male,female,amount):
+    def change_reward(self,male,female,amount):
         if initial_conditions == None:
             self.invest_matrix[0] ==a
         self.reward[male,female] += amount
-    def set_invest(male,female,amount):
+    def set_invest(self,male,female,amount):
         self.invest[male,female] = amount
-    def set_reward(male,female,amount):
+    def set_reward(self,male,female,amount):
         self.reward[male,female] = amount
 
 
 # Object containing all the birds. Cute, eh? 
 class Aviary(object):
-    def __init__(self, n_males, n_females, strat_males, strat_females, res_males, res_females):
+    def __init__(self, n_males = N_MALES, n_females = N_FEMALES, strat_males = STRAT_M, strat_females = STRAT_F, res_males = RES_M, res_females = RES_F):
 # Initialize some parameters:
         self.n_males = n_males
         self.n_females = n_females
@@ -134,34 +135,34 @@ class Aviary(object):
 # Build the male and female lists in the aviary. 
         self.males = [Male_bird(num, strat_males[num], res_males[num]) for num in range(n_males)]
         self.females = [Female_bird(num, strat_females[num], res_females[num]) for num in range(n_females)]
-    def respond(history):
+    def respond(self,history):
 # Initialize Turn
         turn = Turn(history.current_turn + 1,history.n_males,history.n_females)
 # Initialize investment matrix
-        invest = np.zeros([n_males,n_females])
+        invest = np.zeros([self.n_males,self.n_females])
 # For each male, set new investment 
-        for m in range(n_males):
-            invest[m] = males[m].respond(history)            
+        for m in range(self.n_males):
+            invest[m] = self.males[m].respond(history)            
 # Save investment matrix to the turn
         turn.invest = invest
 # As above, but for reward and females
-        reward = np.zeros([n_males,n_femaes])
-        for f in range(n_females):
-            reward[f] = females[f].respond(history)
+        reward = np.zeros([self.n_males,self.n_females])
+        for f in range(self.n_females):
+            reward = self.females[f].respond(history)
         turn.reward = reward
         return turn
 
-# As above, individual responses for male and female. I could wrap this into the respond function to save space, but I actually like the clarity. 
-    def mrespond(history):
-        invest = np.zeros([n_males,n_females])
-        for m in range(n_males):
-            invest[m] = males[m].respond(history)
+    def mrespond(self,history):
+        invest = np.zeros([self.n_males,self.n_females])
+        for m in range(self.n_males):
+            invest[m] = self.males[m].respond(history)            
         return invest
-    def frespond(history):
-        reward = np.zeros([n_males,n_femaes])
-        for f in range(n_females):
-            reward[f] = females[f].respond(history)
-        turn.reward = reward
+
+    def frespond(self,history):
+        reward = np.zeros([self.n_males,self.n_females])
+        for f in range(self.n_females):
+            reward = self.females[f].respond(history)
+        return reward
 #Will I need to give funcitons to change the birds, or will they change automatically? I feel like python is so pointer based that it will be hard to alter it...
 # Actually, it's very easy, in fact, because it's a pointer, it alters the original instance, not merely the aviary object.
 #Function determining reproductve output: 
@@ -196,7 +197,7 @@ def run_trial(turns = TURNS, n_males = N_MALES,n_females = N_FEMALES,strat_males
     history.reward_matrix[0] = aviary.frespond(history)
     history.advance()
 # For every turn, calculate response and record it in history.
-    for t in range(1,turns):
+    for t in range(1,turns-1):
         turn = aviary.respond(history)
         history.record(turn)
     return history

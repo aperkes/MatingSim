@@ -13,6 +13,10 @@ import sys, os
 import numpy as np
 from matplotlib import pyplot as plt
 
+global M_SHIFT, F_SHIFT
+M_SHIFT = .2
+F_SHIFT = .2
+
 ## Branching function to select the correct function and return response. 
 # In the case of males, it returns a new investment matrix 
 # In the case of females, it returns a new reward matrix 
@@ -66,8 +70,8 @@ def m_evasive(resources, history, num):
     avg_invest = f_sums.mean()
 # For each female, add or subtract based on whether it's above or below average
 # Since avg_invest doesn't change, this can happen without confounding itself
-    for f in f_sums:
-        if f >= avg_invest:
+    for f in range(history.n_females):
+        if f_sums[f] >= avg_invest:
             current_invest[num,f] = add_output(current_invest[num,f],M_SHIFT,f)
         else:
             current_invest[num,f] = subtract_output(current_invest[num,f],M_SHIFT,f)
@@ -82,14 +86,16 @@ def m_evasive(resources, history, num):
 # Strategy to reward more investment: 1
 def f_high_investors(resources, history, num):
     current_turn = history.current_turn
+    current_reward = history.reward_matrix[current_turn]
     current_invest = history.invest_matrix[current_turn] 
-    total_invest = current_invest.sum(0)[num]
-    avg_invest = total_invest / history.n_males
+    m_invest = current_invest[:,num]
+    total_invest = m_invest.sum()
+    avg_invest = m_invest.mean()
 # For each male, add or subtract based on if it's above average
-    for m in m_sums:
-        if m >= avg_invest:
+    for m in range(history.n_males):
+        if m_invest[m] >= avg_invest:
             current_reward[m,num] = current_reward[m,num] + F_SHIFT
         else:
             current_reward[m,num] = current_reward[m,num] - F_SHIFT
-    current_reward = f_normalize(current_reward,num)
+    current_reward = f_normalize(current_reward,resources,num)
     return current_reward
