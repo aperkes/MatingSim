@@ -92,9 +92,9 @@ class History(object):
 ## Initialize the matrix, then normalize either to 1 or to some matrix (i.e. male resources, or some skew)
 ## Normalizing is a little tricky due to the males first convention, as follows:
         if initial_conditions == None:
-            self.invest_matrix[0] == self.invest_matrix[0] / self.invest_matrix[0].sum(1).reshape(self.n_males,1)
+            self.invest_matrix[0] = self.invest_matrix[0] / self.invest_matrix[0].sum(1).reshape(self.n_males,1)
         else:
-            self.invest_matrix[0] == self.invest_matrix[0] * initial_conditions / self.invest_matrix[0].sum(1).reshape(self.n_males,1) 
+            self.invest_matrix[0] = self.invest_matrix[0] * initial_conditions / self.invest_matrix[0].sum(1).reshape(self.n_males,1)
     def advance(self):
         self.current_turn = self.current_turn + 1
              
@@ -113,8 +113,6 @@ class Turn(object):
     def change_invest(self,male,female,amount):
         self.invest[male,female] += amount
     def change_reward(self,male,female,amount):
-        if initial_conditions == None:
-            self.invest_matrix[0] ==a
         self.reward[male,female] += amount
     def set_invest(self,male,female,amount):
         self.invest[male,female] = amount
@@ -334,7 +332,7 @@ def get_resources(n_males = N_MALES, n_females = N_FEMALES):
 # function to set up a run custon simulations
 def build_simulation():
     print "This will help you build a simulation. Enter all values as integers (i.e., 11)"
-    turns = raw_input("How turns per trial would you like? ")
+    turns = raw_input("How many turns per trial would you like? ")
     turns = int(turns.strip())
     trials = raw_input("How many trials in the simulation would you like? ")
     trials = int(trials.strip())
