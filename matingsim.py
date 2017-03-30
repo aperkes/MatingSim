@@ -74,6 +74,8 @@ def plot_response(bird):
 
 #Array type object containing cowbirds, allowing cleverness: 
 #Keep history of investment, reward for both males and females
+
+#NOTE: I want to change this so that we have a full matrix of investment, where birds can invest in themselves, in same-sex birds, with negative investment, etc. This is a trivial change as it relates to history, but it will end up being quite a lot of changes down the line. 
 class History(object):
     def __init__(self, turns, n_males, n_females):
 ## Initialize the matrix for the whole sim (save a bunch of time)
@@ -212,8 +214,10 @@ def run_simulation(trials = TRIALS, turns = TURNS, n_males = N_MALES, n_females 
 def show_his_stats(history):
     stats = SimStats.get_stats(history)
     for stat in stats:
-        stat.print_stat()
-        stat.plot_stat()
+# for now, the stats object doesn't function, it's currently just a list of stats
+        print stat
+        #stat.print_stat()
+        #stat.plot_stat()
         raw_input('press enter to continue...')
 
 #Function for plotting a full simulation

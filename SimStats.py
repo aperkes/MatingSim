@@ -21,7 +21,7 @@ class Statistic(object):
         self.y_axis = y_axis
     def print_stat(self):
         print self.name
-        print data
+        print self.data
     def plot_stat(self):
         if self.plot_type == 'plot':
             plt.plot(x_axis,y_axis)
@@ -68,7 +68,7 @@ def hist_crowding(history):
     c_history = [0 for n in range(history.turns)]
     for t in range(history.turns):
         c_history[t] = crowding(history.invest_matrix[t])
-    his_crowd_stat = Statistic('Crowding History',c_history,plot_type = 'plot', x_axis = range(history.turns, y_axis = c_history))
+    his_crowd_stat = Statistic('Crowding History',c_history,plot_type = 'plot', x_axis = range(history.turns), y_axis = c_history)
     return c_history
     
 ## Functions for calculating stats: ##
