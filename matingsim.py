@@ -88,7 +88,7 @@ class History(object):
         self.invest_matrix[turn.n] = turn.invest
         self.reward_matrix[turn.n] = turn.reward
     def initialize(self,initial_conditions = None): #set first investment conditions
-        self.invest_matrix[0] == np.random.random((self.n_males,self.n_females))
+        self.invest_matrix[0] = np.random.random((self.n_males,self.n_females))
 ## Initialize the matrix, then normalize either to 1 or to some matrix (i.e. male resources, or some skew)
 ## Normalizing is a little tricky due to the males first convention, as follows:
         if initial_conditions == None:
