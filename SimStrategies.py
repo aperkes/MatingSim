@@ -49,6 +49,7 @@ def relocate(output,amount,source,sink):
     output[sink] = output[sink] + amount
     return output
 
+## These functions are dumb, just write it in line, it makes it more straight forward
 def add_output(output,amount,sink):
     output[sink] = output[sink] + amount
     return output
@@ -61,6 +62,9 @@ def subtract_output(output,amount,sink):
 ## Male strategies: ##
 ######################
 
+# Inputs: Resources, history, num of male
+# Output: A New investment matrix, edited for that one male. 
+
 # Strategy to avoid crowding: 0
 def m_evasive(resources, history, num):    
     current_turn = history.current_turn    
@@ -72,9 +76,16 @@ def m_evasive(resources, history, num):
 # Since avg_invest doesn't change, this can happen without confounding itself
     for f in range(history.n_females):
         if f_sums[f] >= avg_invest:
-            current_invest[num,f] = add_output(current_invest[num,f],M_SHIFT,f)
+            print num
+            print f
+            print M_SHIFT
+            print current_invest
+            print current_invest[num,f]
+            #current_invest[num,f] = add_output(current_invest[num,f],M_SHIFT,f)
+            current_invest[num,f] = current_invest[num,f] + M_SHIFT
         else:
-            current_invest[num,f] = subtract_output(current_invest[num,f],M_SHIFT,f)
+            #current_invest[num,f] = subtract_output(current_invest[num,f],M_SHIFT,f)
+            current_invest[num,f] = current_invest[num,f] - M_SHIFT
 # Normalize output
     current_invest[num] = normalize(current_invest[num],resources)
     return current_invest

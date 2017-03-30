@@ -26,12 +26,16 @@ default_trials = 10  # Number of trials per simulation
 global STRAT_M, STRAT_F, RES_M, RES_F, A, K, BIRDS, TURNS, TRIALS
 N_MALES = default_males
 N_FEMALES = default_females
-RES_M = [default_res_m] * N_MALES
-RES_F = [default_res_f] * N_FEMALES
+RES_M = default_res_m
+RES_F = default_res_f
+RESS_M = [default_res_m] * N_MALES
+RESS_F = [default_res_f] * N_FEMALES
 TURNS = default_turns
 TRIALS = default_trials
-STRAT_M = [default_strat_m] * N_MALES
-STRAT_F = [default_strat_f] * N_MALES
+STRAT_M = default_strat_m
+STRAT_F = default_strat_f
+STRATS_M = [default_strat_m] * N_MALES
+STRATS_F = [default_strat_f] * N_MALES
 
 #Class of male cowbirds: 
 #Includes: Resources, investment matrix, reward matrix, functions to alter investment
@@ -93,6 +97,8 @@ class History(object):
         self.invest_matrix[0] = np.random.random((self.n_males,self.n_females))
 ## Initialize the matrix, then normalize either to 1 or to some matrix (i.e. male resources, or some skew)
 ## Normalizing is a little tricky due to the males first convention, as follows:
+        self.reward_matrix[0] = np.ones((self.n_males,self.n_females))
+        self.reward_matrix[0] = self.reward_matrix[0] / self.invest_matrix[0].sum(0).reshape(self.n_females,1)
         if initial_conditions == None:
             self.invest_matrix[0] = self.invest_matrix[0] / self.invest_matrix[0].sum(1).reshape(self.n_males,1)
         else:
@@ -142,7 +148,7 @@ class Aviary(object):
         invest = np.zeros([self.n_males,self.n_females])
 # For each male, set new investment 
         for m in range(self.n_males):
-            invest[m] = self.males[m].respond(history)            
+            invest[m] = self.males[m].respond(history)[m]            
 # Save investment matrix to the turn
         turn.invest = invest
 # As above, but for reward and females
@@ -155,7 +161,7 @@ class Aviary(object):
     def mrespond(self,history):
         invest = np.zeros([self.n_males,self.n_females])
         for m in range(self.n_males):
-            invest[m] = self.males[m].respond(history)            
+            invest[m] = self.males[m].respond(history)[m]
         return invest
 
     def frespond(self,history):
@@ -214,7 +220,6 @@ def run_simulation(trials = TRIALS, turns = TURNS, n_males = N_MALES, n_females 
 def show_his_stats(history):
     stats = SimStats.get_stats(history)
     for stat in stats:
-# for now, the stats object doesn't function, it's currently just a list of stats
         print stat
         #stat.print_stat()
         #stat.plot_stat()
