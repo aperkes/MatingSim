@@ -32,13 +32,22 @@ def choose(strategy, resources, history, num):
 
 ## Some basic functions used in various strategies. NOTE: due to python's structure, changing output within a function will change the output itself, since it's merely a pointer towards the object itself. With that in mind, all the returns are sort of more for good habit, just remember that you can't make an identity and then change one of the lists (that goes for arrays and lists)
 def normalize(output,resources):
+    # first set any negative to 0
+    for i in range(len(output)): 
+        if output[i] < 0:
+            output[i] = 0.0
+    # Then normalize to the available resources
     n_output = output * resources / sum(output)
+    # Option to allow for negative male investment, if wanted
+    #n_output = output * resources / sum(abs(output))
     return n_output
 
 # Function to normalize females, because of indexing they don't work the same way
 # This creates a transformation matrix (really a vector: [1 1 1 total 1]
 def f_normalize(current_reward,resources,num):
-    total = current_reward.sum(0)[num]
+    # This allows for negative reward, but actually counts that as investment
+    total = abs(current_reward).sum(0)[num]
+    #total = current_reward.sum(0)[num]
     transform = np.ones(current_reward[0].size)
     transform[num] = total
     current_reward = current_reward * resources / transform
@@ -68,26 +77,35 @@ def subtract_output(output,amount,sink):
 # Strategy to avoid crowding: 0
 def m_evasive(resources, history, num):    
     current_turn = history.current_turn    
-    current_reward = history.reward_matrix[current_turn]
-    current_invest = history.invest_matrix[current_turn]
-    f_sums = current_invest.sum(0)
-    avg_invest = f_sums.mean()
-# For each female, add or subtract based on whether it's above or below average
+    previous_reward = history.reward_matrix[current_turn-1]
+    previous_invest = history.invest_matrix[current_turn-1]
+    current_invest = np.empty_like(previous_invest)
+    current_invest[:] = previous_invest
+    f_sums = previous_invest.sum(0)
+    avg_invest = f_sums / float(history.n_males)
+# For each female, add or subtract based on whether investment is above or below average
 # Since avg_invest doesn't change, this can happen without confounding itself
     for f in range(history.n_females):
-        if f_sums[f] >= avg_invest:
-            print num
-            print f
-            print M_SHIFT
+        if previous_invest[num,f] >= avg_invest[f]:
+            #print num
+            #print f
+            #print M_SHIFT
+            print "Current turn: " + str(history.current_turn)
+            print "Investing by Male: " + str(num) + "in female: " + str(f) + ": " + str(M_SHIFT)
+            print "Current Investment:"
             print current_invest
-            print current_invest[num,f]
+            #print current_invest[num,f]
             #current_invest[num,f] = add_output(current_invest[num,f],M_SHIFT,f)
             current_invest[num,f] = current_invest[num,f] + M_SHIFT
         else:
+            print "Divesting by " + str(num) + "in f: " + str(f)
+            print current_invest
             #current_invest[num,f] = subtract_output(current_invest[num,f],M_SHIFT,f)
             current_invest[num,f] = current_invest[num,f] - M_SHIFT
 # Normalize output
     current_invest[num] = normalize(current_invest[num],resources)
+    print "normalizing across male " + str(num)
+    print current_invest
     return current_invest
      
 ########################
@@ -97,7 +115,9 @@ def m_evasive(resources, history, num):
 # Strategy to reward more investment: 1
 def f_high_investors(resources, history, num):
     current_turn = history.current_turn
-    current_reward = history.reward_matrix[current_turn]
+    previous_reward = history.reward_matrix[current_turn-1]
+    current_reward = np.empty_like(previous_reward)
+    current_reward[:] = previous_reward
     current_invest = history.invest_matrix[current_turn] 
     m_invest = current_invest[:,num]
     total_invest = m_invest.sum()

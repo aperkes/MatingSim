@@ -19,8 +19,8 @@ default_res_m = 1    # Resource limitation for a male
 default_res_f = 1    # Resource limitations for a female (NOTE: This might be unnecessary also....)
 default_males = 5    # Number of birds per trial (assumes symetric trials)
 default_females = 5    # Number of birds per trial (assumes symetric trials)
-default_turns = 100  # Number of turns per trial
-default_trials = 10  # Number of trials per simulation
+default_turns = 10  # Number of turns per trial
+default_trials = 1  # Number of trials per simulation
 
 #global parameters: 
 global STRAT_M, STRAT_F, RES_M, RES_F, A, K, BIRDS, TURNS, TRIALS
@@ -49,8 +49,8 @@ class Male_bird(object):
 #   Functions to adjust and get info. 
 ### NOTE: This is where males apply strategy, strategies are saved externally
     def respond(self,history):
-       new_investment = SimStrategies.choose(self.strategy, self.resources, history, self.num)
-       return new_investment 
+        new_investment = SimStrategies.choose(self.strategy, self.resources, history, self.num)
+        return new_investment 
 
 #Class of female cowbirds: 
 #Includes: resources, response matrix, reward matrix
@@ -81,11 +81,11 @@ def plot_response(bird):
 
 #NOTE: I want to change this so that we have a full matrix of investment, where birds can invest in themselves, in same-sex birds, with negative investment, etc. This is a trivial change as it relates to history, but it will end up being quite a lot of changes down the line. 
 class History(object):
-    def __init__(self, turns, n_males, n_females):
+    def __init__(self, n_turns, n_males, n_females):
 ## Initialize the matrix for the whole sim (save a bunch of time)
-        self.invest_matrix = np.zeros([turns,n_males,n_females])
-        self.reward_matrix = np.zeros([turns,n_males,n_females])
-        self.turns = turns
+        self.invest_matrix = np.zeros([n_turns,n_males,n_females])
+        self.reward_matrix = np.zeros([n_turns,n_males,n_females])
+        self.n_turns = n_turns
         self.n_males = n_males
         self.n_females = n_females
         self.current_turn = 0
@@ -143,7 +143,7 @@ class Aviary(object):
         self.females = [Female_bird(num, strat_females[num], res_females[num]) for num in range(n_females)]
     def respond(self,history):
 # Initialize Turn
-        turn = Turn(history.current_turn + 1,history.n_males,history.n_females)
+        turn = Turn(history.current_turn,history.n_males,history.n_females)
 # Initialize investment matrix
         invest = np.zeros([self.n_males,self.n_females])
 # For each male, set new investment 
@@ -182,10 +182,12 @@ def male_success(params):
 
     return success
 
-def run_trial(turns = TURNS, n_males = N_MALES,n_females = N_FEMALES,strat_males = None, strat_females = None, res_males = None, res_females = None):
+def run_trial(n_turns = TURNS, n_males = N_MALES,n_females = N_FEMALES,
+              strat_males = None, strat_females = None, res_males = None, res_females = None, initial_conditions = None):
 ## Initialize full record...
 ## initialize history
-    history = History(turns,n_males,n_females)
+    history = History(n_turns,n_males,n_females)
+    history.initialize(initial_conditions)
 ## give values to strats and res if none are given:
     if strat_males == None: 
         strat_males = [STRAT_M for n in range(n_males)]
@@ -203,15 +205,16 @@ def run_trial(turns = TURNS, n_males = N_MALES,n_females = N_FEMALES,strat_males
     history.reward_matrix[0] = aviary.frespond(history)
     history.advance()
 # For every turn, calculate response and record it in history.
-    for t in range(1,turns-1):
+    for t in range(1,n_turns-1):
         turn = aviary.respond(history)
         history.record(turn)
+        history.advance()
     return history
        
-def run_simulation(trials = TRIALS, turns = TURNS, n_males = N_MALES, n_females = N_FEMALES, strat_males = None, strat_females = None, res_males = None, res_females = None):
+def run_simulation(trials = TRIALS, n_turns = TURNS, n_males = N_MALES, n_females = N_FEMALES, strat_males = None, strat_females = None, res_males = None, res_females = None):
     record = [0 for tr in range(trials)]
     for tr in range(trials):
-        history = run_trial(turns, n_males, n_females, strat_males, strat_females, res_males, res_females)
+        history = run_trial(n_turns, n_males, n_females, strat_males, strat_females, res_males, res_females)
         record[tr] = SimStats.get_stats(history) 
 # For tidiness, stats is saved in a seperate file
     return record
@@ -341,14 +344,14 @@ def get_resources(n_males = N_MALES, n_females = N_FEMALES):
 # function to set up a run custon simulations
 def build_simulation():
     print "This will help you build a simulation. Enter all values as integers (i.e., 11)"
-    turns = raw_input("How many turns per trial would you like? ")
-    turns = int(turns.strip())
+    n_turns = raw_input("How many turns per trial would you like? ")
+    n_turns = int(turns.strip())
     trials = raw_input("How many trials in the simulation would you like? ")
     trials = int(trials.strip())
     n_males,n_females = get_birds()
     stat_males,strat_females = get_strategy()
     res_males,res_females = get_res()
-    run_simulation(trials, turns, n_males, n_females, strat_males, strat_females, res_males, res_females)
+    run_simulation(trials, n_turns, n_males, n_females, strat_males, strat_females, res_males, res_females)
     
 # List of Menu options
 def print_menu():
