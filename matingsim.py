@@ -13,13 +13,13 @@ from  matplotlib import pyplot as plt
 import SimStrategies,SimStats
 
 #Default starting parameters: 
-default_strat_m = 0
+default_strat_m = 2
 default_strat_f = 1
 default_res_m = 1    # Resource limitation for a male
 default_res_f = 1    # Resource limitations for a female (NOTE: This might be unnecessary also....)
-default_males = 5    # Number of birds per trial (assumes symetric trials)
-default_females = 5    # Number of birds per trial (assumes symetric trials)
-default_turns = 10  # Number of turns per trial
+default_males = 5    # Number of males per trial 
+default_females = 5 # Number of females per trial 
+default_turns = 50  # Number of turns per trial
 default_trials = 1  # Number of trials per simulation
 
 #global parameters: 
@@ -103,18 +103,19 @@ class History(object):
             self.invest_matrix[0] = self.invest_matrix[0] / self.invest_matrix[0].sum(1).reshape(self.n_males,1)
         else:
             self.invest_matrix[0] = self.invest_matrix[0] * initial_conditions / self.invest_matrix[0].sum(1).reshape(self.n_males,1)
+        self.reward_matrix[-1] = self.reward_matrix[0] # This is for when the f_respond checks for previous
     def advance(self):
         self.current_turn = self.current_turn + 1
              
 
 #Object containing turn
 class Turn(object):
-    def __init__(self, n, n_males, n_females, last_turn = None):
+    def __init__(self, n, n_males, n_females, previous_turn = None):
 ## Initialize based on last turn if desired, otherwise start blank
         self.n = n
-        if last_turn != None:
-            self.invest = last_turn.invest
-            self.reward = last_turn.reward
+        if previous_turn != None:
+            self.invest = previous_turn.invest
+            self.reward = previous_turn.reward
         else:
             self.invest = np.zeros([n_males,n_females])
             self.reward = np.zeros([n_males,n_females])
@@ -130,17 +131,19 @@ class Turn(object):
 
 # Object containing all the birds. Cute, eh? 
 class Aviary(object):
-    def __init__(self, n_males = N_MALES, n_females = N_FEMALES, strat_males = STRAT_M, strat_females = STRAT_F, res_males = RES_M, res_females = RES_F):
+    def __init__(self, n_males = N_MALES, n_females = N_FEMALES, 
+                 strats_males = STRATS_M, strats_females = STRATS_F, 
+                 ress_males = RESS_M, ress_females = RESS_F):
 # Initialize some parameters:
         self.n_males = n_males
         self.n_females = n_females
-        self.strat_males = strat_males
-        self.strat_females = strat_females
-        self.res_males = res_males
-        self.res_females = res_females
+        self.strats_males = strats_males
+        self.strats_females = strats_females
+        self.ress_males = ress_males
+        self.ress_females = ress_females
 # Build the male and female lists in the aviary. 
-        self.males = [Male_bird(num, strat_males[num], res_males[num]) for num in range(n_males)]
-        self.females = [Female_bird(num, strat_females[num], res_females[num]) for num in range(n_females)]
+        self.males = [Male_bird(num, strats_males[num], ress_males[num]) for num in range(n_males)]
+        self.females = [Female_bird(num, strats_females[num], ress_females[num]) for num in range(n_females)]
     def respond(self,history):
 # Initialize Turn
         turn = Turn(history.current_turn,history.n_males,history.n_females)
@@ -152,10 +155,10 @@ class Aviary(object):
 # Save investment matrix to the turn
         turn.invest = invest
 # As above, but for reward and females
-        reward = np.zeros([self.n_males,self.n_females])
+        """reward = np.zeros([self.n_males,self.n_females])
         for f in range(self.n_females):
-            reward = self.females[f].respond(history)
-        turn.reward = reward
+            reward[:,f] = self.females[f].respond(history)[:,f]"""
+        turn.reward = self.frespond(history)
         return turn
 
     def mrespond(self,history):
@@ -167,7 +170,7 @@ class Aviary(object):
     def frespond(self,history):
         reward = np.zeros([self.n_males,self.n_females])
         for f in range(self.n_females):
-            reward = self.females[f].respond(history)
+            reward[:,f] = self.females[f].respond(history)[:,f]
         return reward
 #Will I need to give funcitons to change the birds, or will they change automatically? I feel like python is so pointer based that it will be hard to alter it...
 # Actually, it's very easy, in fact, because it's a pointer, it alters the original instance, not merely the aviary object.
@@ -183,29 +186,29 @@ def male_success(params):
     return success
 
 def run_trial(n_turns = TURNS, n_males = N_MALES,n_females = N_FEMALES,
-              strat_males = None, strat_females = None, res_males = None, res_females = None, initial_conditions = None):
+              strats_males = None, strats_females = None, ress_males = None, ress_females = None, initial_conditions = None):
 ## Initialize full record...
 ## initialize history
     history = History(n_turns,n_males,n_females)
     history.initialize(initial_conditions)
 ## give values to strats and res if none are given:
-    if strat_males == None: 
-        strat_males = [STRAT_M for n in range(n_males)]
-    if strat_females == None:
-        strat_females = [STRAT_F for n in range(n_females)]
-    if res_males == None:
-        res_males = [RES_M for n in range(n_males)]
-    if res_females == None:
-        res_females = [RES_F for n in range(n_females)]
+    if strats_males == None: 
+        strats_males = [STRAT_M for n in range(n_males)]
+    if strats_females == None:
+        strats_females = [STRAT_F for n in range(n_females)]
+    if ress_males == None:
+        ress_males = [RES_M for n in range(n_males)]
+    if ress_females == None:
+        ress_females = [RES_F for n in range(n_females)]
 # Build an aviary using the given parameters
-    aviary = Aviary(n_males, n_females, strat_males, strat_females, res_males, res_females)
+    aviary = Aviary(n_males, n_females, strats_males, strats_females, ress_males, ress_females)
 # Initialize initial investment (based on male resources, if specified)
     history.initialize()
 # Get first female response:
     history.reward_matrix[0] = aviary.frespond(history)
     history.advance()
 # For every turn, calculate response and record it in history.
-    for t in range(1,n_turns-1):
+    for t in range(n_turns-1):
         turn = aviary.respond(history)
         history.record(turn)
         history.advance()
