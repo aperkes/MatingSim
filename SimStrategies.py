@@ -14,8 +14,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 global M_SHIFT, F_SHIFT
-M_SHIFT = .02
-F_SHIFT = .02
+M_SHIFT = .001
+F_SHIFT = .001
 
 ## Branching function to select the correct function and return response. 
 # In the case of males, it returns a new investment matrix 
@@ -27,10 +27,18 @@ def choose(strategy, resources, history, num):
         return m_evasive(resources, history, num)
     elif strategy == 2:
         return m_greedy(resources, history, num)
+    elif strategy == 4:
+        return m_greedy_theft(resources, history, num)
 
 ## Female strategies (by convention, odd)
     elif strategy == 1:
         return f_high_investors(resources, history, num)
+    elif strategy == 3: 
+        return f_investment(resources, history, num)
+    elif strategy == 5:
+        return f_relative_investment(resources, history, num)
+    elif strategy == 7:
+        return f_relative_investment_a(resources, history, num)
     else:
         print "No strategy found, quitting"
         sys.exit()
@@ -48,14 +56,14 @@ def normalize(output,resources):
     return n_output
 
 # Function to normalize females, because of indexing they don't work the same way
-# This creates a transformation matrix (really a vector: [1 1 1 total 1]
+# This creates a ation matrix (really a vector: [1 1 1 total 1]
 def f_normalize(current_reward,resources,num):
     # This allows for negative reward, but actually counts that as investment
     total = abs(current_reward).sum(0)[num]
     #total = current_reward.sum(0)[num]
     transform = np.ones(current_reward[0].size)
     transform[num] = total
-    current_reward = current_reward * resources / transform
+    current_reward = current_reward * resources / (transform + .0001) 
     return current_reward
 
 def relocate(output,amount,source,sink):
@@ -124,33 +132,48 @@ def m_greedy(resources, history, num):
     benefit = np.zeros(history.n_females)
     for f in range(history.n_females):
         benefit[f] = previous_reward[num,f] / (previous_invest[num,f] + .001)
-    #print 'benefit: ' + str(benefit)
-    avg_benefit = benefit.mean()
+    avg_benefit = benefit[np.nonzero(benefit)].mean()   # This is critical for monogamy to function
+    #avg_benefit = benefit.mean()
 # Invest more if you're beating your avg rate of return, invest less otherwise
     for f in range(history.n_females):
-        if benefit[f] >= avg_benefit:
-            #print num
-            #print f
-            #print M_SHIFT
-            #print "Current turn: " + str(history.current_turn)
-            #print "Investing by Male: " + str(num) + "in female: " + str(f) + ": " + str(M_SHIFT)
-            #print "Current Investment:"
-            #print current_invest
-            #print current_invest[num,f]
-            #current_invest[num,f] = add_output(current_invest[num,f],M_SHIFT,f)
+        if benefit[f] > avg_benefit:
+
             current_invest[num,f] = current_invest[num,f] + M_SHIFT
         else:
-            #print "Divesting by " + str(num) + "in f: " + str(f)
-            #print current_invest
-            #current_invest[num,f] = subtract_output(current_invest[num,f],M_SHIFT,f)
+
             current_invest[num,f] = current_invest[num,f] - M_SHIFT
 # Normalize output
     current_invest[num] = normalize(current_invest[num],resources)
-    #print "normalizing across male " + str(num)
-    #print current_invest
     return current_invest
 
-
+def m_greedy_theft(resources, history, num):
+    #print history.current_turn
+    current_turn = history.current_turn    
+    previous_reward = history.reward_matrix[current_turn-1]
+    previous_invest = history.invest_matrix[current_turn-1]
+    current_invest = np.empty_like(previous_invest)
+    current_invest[:] = previous_invest
+    benefit = np.zeros(history.n_females)
+    for f in range(history.n_females):
+        benefit[f] = previous_reward[num,f] / (previous_invest[num,f] + .001)
+    avg_benefit = benefit[np.nonzero(benefit)].mean()   
+    #avg_benefit = benefit.mean()
+# Invest more if you're beating your avg rate of return, invest less otherwise
+    count = 0
+    aces = []
+    for f in range(history.n_females):
+        if benefit[f] <= avg_benefit:
+            current_invest[num,f] = previous_invest[num,f] - M_SHIFT
+            if current_invest[num,f] < 0:
+                current_invest[num,f] = 0.0
+        else:
+            aces.append(f)
+    divestment = sum(previous_invest[num,:] - current_invest[num,:])
+    for a in aces:
+        current_invest[num,a] = current_invest[num,a] + divestment / len(aces)
+# Normalize output
+    #current_invest[num] = normalize(current_invest[num],resources)
+    return current_invest   
 ########################
 ## Female Strategies: ##
 ########################
@@ -167,9 +190,58 @@ def f_high_investors(resources, history, num):
     avg_invest = m_invest.mean()
 # For each male, add or subtract based on if it's above average
     for m in range(history.n_males):
-        if m_invest[m] >= avg_invest:
+        if m_invest[m] > avg_invest:
             current_reward[m,num] = previous_reward[m,num] + F_SHIFT
         else:
             current_reward[m,num] = previous_reward[m,num] - F_SHIFT
     current_reward = f_normalize(current_reward,resources,num)
+    return current_reward
+
+# Strategy to reward more investment linearly: 3
+def f_investment(resources, history, num):
+    current_turn = history.current_turn
+    previous_reward = history.reward_matrix[current_turn-1]
+    current_reward = np.empty_like(previous_reward)
+    current_reward[:] = previous_reward
+    previous_invest = history.invest_matrix[current_turn-1] 
+    m_invest = previous_invest[:,num]
+    #total_invest = m_invest.sum()
+    avg_invest = m_invest.mean()
+# For each male, reward is a function of investment
+    for m in range(history.n_males):
+        current_reward[m,num] = previous_invest[m,num]
+    current_reward = f_normalize(current_reward,resources,num)
+    return current_reward
+
+# Strategy to reward more investment: 5
+def f_relative_investment(resources, history, num):
+    current_turn = history.current_turn
+    previous_reward = history.reward_matrix[current_turn-1]
+    current_reward = np.empty_like(previous_reward)
+    current_reward[:] = previous_reward
+    previous_invest = history.invest_matrix[current_turn-1] 
+    m_invest = previous_invest[:,num]
+    #total_invest = m_invest.sum()
+    avg_invest = m_invest.mean()
+# For each male, reward is a function of investment
+    for m in range(history.n_males):
+        current_reward[m,num] = previous_invest[m,num] / previous_invest[:,num].sum()
+    current_reward = f_normalize(current_reward,resources,num)
+    return current_reward
+
+# Strategy to reward more investment: 5
+def f_relative_investment_a(resources, history, num):
+    a = 2.0
+    current_turn = history.current_turn
+    previous_reward = history.reward_matrix[current_turn-1]
+    current_reward = np.empty_like(previous_reward)
+    current_reward[:] = previous_reward
+    previous_invest = history.invest_matrix[current_turn-1] 
+    m_invest = previous_invest[:,num]
+    #total_invest = m_invest.sum()
+    avg_invest = m_invest.mean()
+# For each male, reward is a function of investment
+    for m in range(history.n_males):
+        current_reward[m,num] = (previous_invest[m,num] / previous_invest[:,num].sum()) ** a
+    #current_reward = f_normalize(current_reward,resources,num)
     return current_reward
