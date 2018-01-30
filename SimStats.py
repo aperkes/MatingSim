@@ -65,7 +65,8 @@ def final_crowding(history):
     return fin_crowd_stat
 
 def hist_crowding(history):
-    c_history = [0 for n in range(history.turns)]
+    c_history = np.array(history.turns)
+    #c_history = [0 for n in range(history.turns)]
     for t in range(history.turns):
         c_history[t] = crowding(history.invest_matrix[t])
     his_crowd_stat = Statistic('Crowding History',c_history,plot_type = 'plot', x_axis = range(history.turns), y_axis = c_history)

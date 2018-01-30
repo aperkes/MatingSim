@@ -9,17 +9,19 @@ written by Ammon Perkes (perkes.ammon@gmail.com) at University of Pennsylvania
 import sys, os
 import numpy as np
 from  matplotlib import pyplot as plt
+from matplotlib.widgets import Slider
 #External .py dependencies, contatining strategies and sims
 import SimStrategies,SimStats
 
+
 #Default starting parameters: 
 default_strat_m = 2
-default_strat_f = 1
+default_strat_f = 7
 default_res_m = 1    # Resource limitation for a male
 default_res_f = 1    # Resource limitations for a female (NOTE: This might be unnecessary also....)
-default_males = 5    # Number of males per trial 
-default_females = 5 # Number of females per trial 
-default_turns = 50  # Number of turns per trial
+default_males = 7    # Number of males per trial 
+default_females = 6 # Number of females per trial 
+default_turns = 800  # Number of turns per trial
 default_trials = 1  # Number of trials per simulation
 
 #global parameters: 
@@ -66,15 +68,7 @@ class Female_bird(object):
 ### NOTE: This is where strategy is applied
         resources = self.resources
         new_response = SimStrategies.choose(self.strategy,self.resources, history, self.num)
-        return new_response
-#
-# Function to plot the response curve of a male or female bird (which is contained in their class)
-def plot_response(bird):
-    strategy = bird.strategy
-    function = SimStrategies.function(strategy)
-    plt.plot(function)
-    plt.show()
-#NOTE: This is probably wrong, go back and check it. 
+        return new_response 
 
 #Array type object containing cowbirds, allowing cleverness: 
 #Keep history of investment, reward for both males and females
@@ -97,13 +91,20 @@ class History(object):
         self.invest_matrix[0] = np.random.random((self.n_males,self.n_females))
 ## Initialize the matrix, then normalize either to 1 or to some matrix (i.e. male resources, or some skew)
 ## Normalizing is a little tricky due to the males first convention, as follows:
-        self.reward_matrix[0] = np.ones((self.n_males,self.n_females))
-        self.reward_matrix[0] = self.reward_matrix[0] / self.invest_matrix[0].sum(0).reshape(self.n_females,1)
+## I'm not sure why i needed to normalize this tbh, and if no, why not normalize it as I did invest
+        self.reward_matrix[0] = np.random.random([self.n_males,self.n_females])
+        """ 
+        print self.reward_matrix[0]
+        print self.invest_matrix[0]
+        print self.invest_matrix[0].sum(0)
+        print self.invest_matrix[0].sum(0).reshape(self.n_females,1)"""
+        self.reward_matrix[0] = self.reward_matrix[0] / self.invest_matrix[0].sum(1).reshape(self.n_males,1)
         if initial_conditions == None:
             self.invest_matrix[0] = self.invest_matrix[0] / self.invest_matrix[0].sum(1).reshape(self.n_males,1)
         else:
             self.invest_matrix[0] = self.invest_matrix[0] * initial_conditions / self.invest_matrix[0].sum(1).reshape(self.n_males,1)
         self.reward_matrix[-1] = self.reward_matrix[0] # This is for when the f_respond checks for previous
+        self.invest_matrix[-1] = self.invest_matrix[0]
     def advance(self):
         self.current_turn = self.current_turn + 1
              
@@ -221,7 +222,15 @@ def run_simulation(trials = TRIALS, n_turns = TURNS, n_males = N_MALES, n_female
         record[tr] = SimStats.get_stats(history) 
 # For tidiness, stats is saved in a seperate file
     return record
-    
+
+# Function to plot the response curve of a male or female bird (which is contained in their class)
+def plot_response(bird):
+    strategy = bird.strategy
+    function = SimStrategies.function(strategy)
+    plt.plot(function)
+    plt.show()
+#NOTE: This is probably wrong, go back and check it.
+
 #Function plotting history and outcome in interesting ways
 def show_his_stats(history):
     stats = SimStats.get_stats(history)
@@ -355,6 +364,33 @@ def build_simulation():
     stat_males,strat_females = get_strategy()
     res_males,res_females = get_res()
     run_simulation(trials, n_turns, n_males, n_females, strat_males, strat_females, res_males, res_females)
+
+    # Plot history (with a fancy slider)
+def plot_history(history):
+    # generate a five layer data 
+    data = history.invest_matrix
+    # current layer index start with the first layer 
+    idx = 0
+
+    # figure axis setup 
+    fig, ax = plt.subplots()
+    fig.subplots_adjust(bottom=0.15)
+
+    # display initial image 
+    im_h = ax.imshow(data[idx, :, :], vmin=0., vmax=1., cmap='hot', interpolation='nearest')
+
+    # setup a slider axis and the Slider
+    ax_depth = plt.axes([0.23, 0.02, 0.56, 0.04])
+    slider_depth = Slider(ax_depth, 'depth', 0, data.shape[0]-1, valinit=idx)
+
+    # update the figure with a change on the slider 
+    def update_depth(val):
+        idx = int(round(slider_depth.val))
+        im_h.set_data(data[idx, :, :])
+
+    slider_depth.on_changed(update_depth)
+
+    plt.show()   
     
 # List of Menu options
 def print_menu():
@@ -365,9 +401,10 @@ def print_menu():
 
 #Menu allowing you to set the parameters (based on sys.argv)
 def menu():
+    choice = 0
     while choice != 9:
         print_menu()
-        choice = raw_input("Select option (enter a number)")
+        choice = int(raw_input("Select option (enter a number):  "))
         if choice == 0:
             run_simulation()
         elif choice == 1:
@@ -377,3 +414,8 @@ def menu():
         elif choice == 9:
             print "How about a nice game of chess?"
     return choice
+
+if __name__ == "__main__":
+    #menu()
+    history = run_trial()
+    plot_history(history)
