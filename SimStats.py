@@ -9,7 +9,11 @@ written by Ammon Perkes (perkes.ammon@gmail.com) at University of Pennsylvania
 """
 import sys, os
 import numpy as np
-from matplotlib import pyplot as pt
+from  matplotlib import pyplot as plt
+from matplotlib.widgets import Slider
+import plotly as py
+import networkx as nx
+from plotly.graph_objs import *
 
 ## Statistic object which will allow for useful processing of data
 class Statistic(object):
@@ -38,9 +42,12 @@ def rec_stats(record):
 
 ## Function compile stats for single trial, based on functions below
 def get_stats(history):
-    stats = []
-    stats.append(final_crowding(history))
-    stats.append(hist_crowding(history))
+    stats = {}
+    #stats.append(final_crowding(history))
+    #stats.append(hist_crowding(history))
+    stats['waste'] = final_waste(history)
+    stats['deviation'] = get_deviation_final(history)
+    stats['crowding'] = final_crowding(history)
     return stats
 
 ### Record Stats: ###
@@ -65,11 +72,11 @@ def final_crowding(history):
     return fin_crowd_stat
 
 def hist_crowding(history):
-    c_history = np.array(history.turns)
-    #c_history = [0 for n in range(history.turns)]
-    for t in range(history.turns):
+    c_history = np.zeros(history.n_turns)
+    #c_history = [0 for n in range(history.n_turns)]
+    for t in range(history.n_turns):
         c_history[t] = crowding(history.invest_matrix[t])
-    his_crowd_stat = Statistic('Crowding History',c_history,plot_type = 'plot', x_axis = range(history.turns), y_axis = c_history)
+    his_crowd_stat = Statistic('Crowding History',c_history,plot_type = 'plot', x_axis = range(history.n_turns), y_axis = c_history)
     return c_history
     
 ## Functions for calculating stats: ##
@@ -79,3 +86,78 @@ def crowding(invest):
     norm_sum = norm_fsums.sum()     #sum of norms
     n_norm_sum = norm_sum / len(fsums)  # Normalize again for number of females
     return n_norm_sum
+
+def get_waste(history):
+    waste = []
+    n_females = history.n_females
+    for r in history.reward_matrix:
+        lost_reward = n_females - sum(sum(r))
+        waste.append(lost_reward)
+    #plt.plot(waste)
+    #plt.show()
+    return waste
+
+def final_waste(history):
+    n_females = history.n_females
+    lost_reward = n_females - sum(sum(history.reward_matrix[-1]))
+    return lost_reward
+
+def get_all_degrees(history):
+    all_degrees = []
+    for i in history.invest_matrix():
+        adjacency = get_adjacency(history.invest_matrix[-1])
+        adjacency.dtype = [('weight','float')]
+        G = nx.from_numpy_matrix(adjacency,parallel_edges=False)
+        all_degrees.append(get_degrees(G))
+    return all_degrees
+
+def get_degrees_final(history):
+    adjacency = get_adjacency(history.invest_matrix[-1])
+    adjacency.dtype = [('weight','float')]
+    G = nx.from_numpy_matrix(adjacency,parallel_edges=False)
+    return final_degrees
+    
+def get_deviation_final(history):
+    final_deviation = []
+    adjacency = get_adjacency(history.invest_matrix[-1])
+    adjacency.dtype = [('weight','float')]
+    G = nx.from_numpy_matrix(adjacency,parallel_edges=False)
+    return get_deviation(G)
+
+def get_degrees(G):
+    degrees = []
+    for n in G:
+        degrees.append(G.degree[n])
+    return degrees
+
+def get_deviation(G):
+    degrees = get_degrees(G)
+    deviation = 0
+    for d in degrees:
+        deviation += abs(d-1)
+    return deviation
+
+def get_deviations(history):
+    deviations = []
+    for i in history.invest_matrix():
+        adjacency = get_adjacency(i)
+        adjacency.dtype = [('weight','float')]
+        G = nx.from_numpy_matrix(adjacency,parallel_edges=False)
+        deviations.append(deviation(G))
+    return deviations
+
+def final_fornication(history):
+    final_fornication = 0
+    adjacency = get_adjacency(history.invest_matrix[-1])
+    adjacency.dtype = [('weight','float')]
+    G = nx.from_numpy_matrix(adjacency,parallel_edges=False)
+    final_fornication = fornication.append(deviation(G))
+    return final_fornication
+    
+def get_adjacency(investment):
+    n_males,n_females = np.shape(investment)
+    size = n_males + n_females
+    adjacency = np.zeros([size,size])
+    adjacency[0:n_males,n_males:] = investment
+    adjacency[n_males:,:n_females] = np.transpose(investment)
+    return adjacency
