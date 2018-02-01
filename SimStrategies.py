@@ -39,6 +39,8 @@ def choose(strategy, resources, history, num):
         return f_relative_investment(resources, history, num)
     elif strategy == 7:
         return f_relative_investment_a(resources, history, num)
+    elif strategy == 9:
+        return f_investment_a(resources, history, num)
     else:
         print "No strategy found, quitting"
         sys.exit()
@@ -211,6 +213,21 @@ def f_investment(resources, history, num):
     for m in range(history.n_males):
         current_reward[m,num] = previous_invest[m,num]
     current_reward = f_normalize(current_reward,resources,num)
+    return current_reward
+
+def f_investment_a(resources, history, num):
+    a = 2.0
+    current_turn = history.current_turn
+    previous_reward = history.reward_matrix[current_turn-1]
+    current_reward = np.empty_like(previous_reward)
+    current_reward[:] = previous_reward
+    previous_invest = history.invest_matrix[current_turn-1] 
+    m_invest = previous_invest[:,num]
+    #total_invest = m_invest.sum()
+    avg_invest = m_invest.mean()
+# For each male, reward is a function of investment
+    current_reward[:,num] = (previous_invest[:,num]) ** a
+    #current_reward = f_normalize(current_reward,resources,num)
     return current_reward
 
 # Strategy to reward more investment: 5

@@ -10,8 +10,13 @@ import sys, os
 import numpy as np
 from  matplotlib import pyplot as plt
 from matplotlib.widgets import Slider
+import plotly as py
+import networkx as nx
+from plotly.graph_objs import *
+
 #External .py dependencies, contatining strategies and sims
 import SimStrategies,SimStats
+
 
 
 #Default starting parameters: 
@@ -19,7 +24,7 @@ default_strat_m = 2
 default_strat_f = 7
 default_res_m = 1    # Resource limitation for a male
 default_res_f = 1    # Resource limitations for a female (NOTE: This might be unnecessary also....)
-default_males = 7    # Number of males per trial 
+default_males = 6    # Number of males per trial 
 default_females = 6 # Number of females per trial 
 default_turns = 800  # Number of turns per trial
 default_trials = 1  # Number of trials per simulation
@@ -365,7 +370,8 @@ def build_simulation():
     res_males,res_females = get_res()
     run_simulation(trials, n_turns, n_males, n_females, strat_males, strat_females, res_males, res_females)
 
-    # Plot history (with a fancy slider)
+### Plotting Function ###
+# Plot history (with a fancy slider)
 def plot_history(history):
     # generate a five layer data 
     data = history.invest_matrix
@@ -390,8 +396,79 @@ def plot_history(history):
 
     slider_depth.on_changed(update_depth)
 
-    plt.show()   
+    plt.show()  
     
+### Several Functions for Network Plotting ###
+def plot_network_progression(history):
+    turns = history.current_turn
+    seed_turn = turns / 20
+    adj_rounded = get_adj_rounded(history.invest_matrix[seed_turn])
+
+    G = nx.from_numpy_matrix(adj_rounded)
+    G = nx.convert_node_labels_to_integers(G, first_label=0, ordering='default', label_attribute=None)
+
+    pos = nx.spring_layout(G)
+    #pos = nx.spectral_layout(G)
+    #pos = nx.circular_layout(G)
+    #pos = nx.shell_layout(G)
+    #pos = nx.kamada_kawai_layout(G)
+    
+
+    for t in range(0,turns,40):
+        plt.cla()
+        adjacency = get_adjacency(history.invest_matrix[t]) * 4
+        adjacency.dtype = [('weight','float')]
+        G = nx.from_numpy_matrix(adjacency,parallel_edges=False)
+        pos = nx.spring_layout(G, pos=pos, fixed=None)
+        color_map = []
+        for node in G:
+            if int(node) < history.n_males:
+                color_map.append('blue')
+            else: color_map.append('red')    
+        edges = G.edges()
+        weights = [G[u][v]['weight'] for u,v in edges]
+        nx.draw(G, pos, node_color = color_map, with_labels = True, edges=edges, width=weights)
+        plt.pause(.5)
+        plt.draw()
+        
+
+def get_adj_rounded(investment):
+    n_males,n_females = np.shape(investment)
+    size = n_males + n_females
+    adjacency = np.zeros([size,size])
+    adjacency[0:n_males,n_males:] = investment
+    adjacency[n_males:,:n_females] = np.transpose(investment)
+    adj_rounded = np.round(adjacency + .4)
+    return adj_rounded
+
+def get_adjacency(investment):
+    n_males,n_females = np.shape(investment)
+    size = n_males + n_females
+    adjacency = np.zeros([size,size])
+    adjacency[0:n_males,n_males:] = investment
+    adjacency[n_males:,:n_females] = np.transpose(investment)
+    return adjacency
+    
+def plot_network(investment):
+    plt.cla()
+    adjacency = get_adjacency(investment) * 4
+    adjacency.dtype = [('weight','float')]
+    G = nx.from_numpy_matrix(adjacency,parallel_edges=False)
+    # Set layount: 
+    pos = nx.spring_layout(G)
+    color_map = []
+    n_males, n_females = np.shape(investment)
+    for node in G:
+        if int(node) < n_males:
+            color_map.append('blue')
+        else: color_map.append('red')    
+
+    edges = G.edges()
+    weights = [G[u][v]['weight'] for u,v in edges]
+    nx.draw(G, pos, node_color = color_map, with_labels = True, edges=edges, width=weights)
+
+    plt.show()
+        
 # List of Menu options
 def print_menu():
     print "[0] - Run Default Simulation"    
@@ -418,4 +495,5 @@ def menu():
 if __name__ == "__main__":
     #menu()
     history = run_trial()
-    plot_history(history)
+    #plot_history(history)
+    plot_network_progression(history)
