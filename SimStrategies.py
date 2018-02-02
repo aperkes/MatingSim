@@ -16,12 +16,12 @@ from matplotlib import pyplot as plt
 global M_SHIFT, F_SHIFT
 M_SHIFT = .001
 F_SHIFT = .001
-
+ALPHA = 2
 ## Branching function to select the correct function and return response. 
 # In the case of males, it returns a new investment matrix 
 # In the case of females, it returns a new reward matrix 
 
-def choose(strategy, resources, history, num):
+def choose(strategy, resources, history, num, alpha = ALPHA):
 ## Male strategies (by convention, even)
     if strategy == 0:
         return m_evasive(resources, history, num)
@@ -38,7 +38,7 @@ def choose(strategy, resources, history, num):
     elif strategy == 5:
         return f_relative_investment(resources, history, num)
     elif strategy == 7:
-        return f_relative_investment_a(resources, history, num)
+        return f_relative_investment_a(resources, history, num, alpha)
     elif strategy == 9:
         return f_investment_a(resources, history, num)
     else:
@@ -215,8 +215,8 @@ def f_investment(resources, history, num):
     current_reward = f_normalize(current_reward,resources,num)
     return current_reward
 
-def f_investment_a(resources, history, num):
-    a = 2.0
+def f_investment_a(resources, history, num, alpha):
+    a = alpha
     current_turn = history.current_turn
     previous_reward = history.reward_matrix[current_turn-1]
     current_reward = np.empty_like(previous_reward)
@@ -247,8 +247,8 @@ def f_relative_investment(resources, history, num):
     return current_reward
 
 # Strategy to reward more investment: 5
-def f_relative_investment_a(resources, history, num):
-    a = 2.0
+def f_relative_investment_a(resources, history, num, alpha):
+    a = alpha
     current_turn = history.current_turn
     previous_reward = history.reward_matrix[current_turn-1]
     current_reward = np.empty_like(previous_reward)

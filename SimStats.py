@@ -48,6 +48,7 @@ def get_stats(history):
     stats['waste'] = final_waste(history)
     stats['deviation'] = get_deviation_final(history)
     stats['crowding'] = final_crowding(history)
+    stats['monogamy'] = get_monogamy_ratio(history)
     return stats
 
 ### Record Stats: ###
@@ -161,3 +162,24 @@ def get_adjacency(investment):
     adjacency[0:n_males,n_males:] = investment
     adjacency[n_males:,:n_females] = np.transpose(investment)
     return adjacency
+
+def count_pairs(investment):
+    monogamy_thresh = .3
+    round_add = .5 - monogamy_thresh
+    pairs = np.count_nonzero(np.round(history.invest_matrix[-1] + round_add))
+    return pairs
+
+def get_monogamy_ratio(history):
+    monogamy_thresh = .3
+    investment = history.invest_matrix[-1]
+    mono_pairs,poly_pairs = (0,0)
+    for m in range(history.n_males):
+        for f in range(history.n_females):
+            pair_strength = investment[m,f]
+            if pair_strength > monogamy_thresh:
+                if (sum(investment[m]) == pair_strength) and (sum(investment[:,f]) == pair_strength):
+                    mono_pairs += 1
+                else:
+                    poly_pairs += 1
+    monogamy_ratio = mono_pairs / float(mono_pairs + poly_pairs)
+    return monogamy_ratio
