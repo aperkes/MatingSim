@@ -44,6 +44,8 @@ def choose(strategy, resources, history, num, alpha = ALPHA, kappa = KAPPA):
         return f_investment_a(resources, history, num)
     elif strategy == 11:
         return f_adjacent_quality(resources, history, num, alpha, kappa)
+    elif strategy == 13:
+        return f_adjacent_quality_relative(resources, history, num, alpha, kappa)
     else:
         print "No strategy found, quitting"
         sys.exit()
@@ -277,4 +279,18 @@ def f_adjacent_quality(resources, history, num, alpha, kappa):
     for m in range(history.n_males):
         current_reward[m,num] = (1 + adjacency[m,history.n_males + num])**a * m_quality[m]**q
     current_reward = f_normalize(current_reward,resources,num)
+    return current_reward
+
+# Stretegy which judges quality & relative adjacency
+def f_adjacent_quality_relative(resources, history, num, alpha, kappa):
+    a = alpha
+    q = kappa
+    current_turn = history.current_turn
+    current_reward = np.empty_like(history.reward_matrix[current_turn-1])
+    adjacency = history.adjacency_matrix[current_turn]
+    m_quality = history.quality_males
+    for m in range(history.n_males):
+        relative_adjacency = adjacency[m,history.n_males + num] / sum(adjacency[:history.n_males,history.n_males + num])
+        current_reward[m,num] = (relative_adjacency)**a * m_quality[m]**q
+    #current_reward = f_normalize(current_reward,resources,num)
     return current_reward
