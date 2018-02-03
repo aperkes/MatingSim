@@ -16,12 +16,13 @@ from matplotlib import pyplot as plt
 global M_SHIFT, F_SHIFT
 M_SHIFT = .001
 F_SHIFT = .001
-ALPHA = 2
+ALPHA = 1.0
+KAPPA = 1.0
 ## Branching function to select the correct function and return response. 
 # In the case of males, it returns a new investment matrix 
 # In the case of females, it returns a new reward matrix 
 
-def choose(strategy, resources, history, num, alpha = ALPHA):
+def choose(strategy, resources, history, num, alpha = ALPHA, kappa = KAPPA):
 ## Male strategies (by convention, even)
     if strategy == 0:
         return m_evasive(resources, history, num)
@@ -41,6 +42,8 @@ def choose(strategy, resources, history, num, alpha = ALPHA):
         return f_relative_investment_a(resources, history, num, alpha)
     elif strategy == 9:
         return f_investment_a(resources, history, num)
+    elif strategy == 11:
+        return f_adjacent_quality(resources, history, num, alpha, kappa)
     else:
         print "No strategy found, quitting"
         sys.exit()
@@ -261,4 +264,17 @@ def f_relative_investment_a(resources, history, num, alpha):
     for m in range(history.n_males):
         current_reward[m,num] = (previous_invest[m,num] / previous_invest[:,num].sum()) ** a
     #current_reward = f_normalize(current_reward,resources,num)
+    return current_reward
+
+# Stretegy which judges quality & adjacency
+def f_adjacent_quality(resources, history, num, alpha, kappa):
+    a = alpha
+    q = kappa
+    current_turn = history.current_turn
+    current_reward = np.empty_like(history.reward_matrix[current_turn-1])
+    adjacency = history.adjacency_matrix[current_turn]
+    m_quality = history.quality_males
+    for m in range(history.n_males):
+        current_reward[m,num] = (1 + adjacency[m,history.n_males + num])**a * m_quality[m]**q
+    current_reward = f_normalize(current_reward,resources,num)
     return current_reward
