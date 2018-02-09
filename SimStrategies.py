@@ -101,6 +101,8 @@ def subtract_output(output,amount,sink):
 # Output: A New investment matrix, edited for that one male. 
 
 def m_new_strategy(resources, history, num):
+    shift_scaler = .1
+    
     current_turn = history.current_turn
     
     previous_invest = history.invest_matrix2[current_turn - 1]
@@ -112,12 +114,24 @@ def m_new_strategy(resources, history, num):
     my_current_invest = np.zeros(np.shape(my_previous_invest))
     
     profit = my_previous_reward[:] / (my_previous_invest[:] + .0001)
-    profit[0:history.n_males] = -1000
-    avg_profit = profit[history.n_males:].mean()
-    my_current_invest[profit > avg_profit] = profit[profit > avg_profit] - avg_profit
+    #profit[0:history.n_males] = -1000
+    #female_profit = profit[history.n_males:]
+    avg_profit = profit[my_previous_invest > 0.0].mean()
+    #avg_profit = profit[history.n_males:].mean()
+    max_profit = profit[history.n_males:].max()
+    min_profit = profit[history.n_males:].min()
+    profit_thresh = max_profit - (max_profit - avg_profit) * .25
+    
+    shift_matrix = (profit - avg_profit) / (max_profit - min_profit + .0001) * shift_scaler
+    
+
+    my_current_invest = my_previous_invest + shift_matrix
+    my_current_invest[my_current_invest < 0] = 0
+    #my_current_invest[profit > profit_thresh] = profit[profit > profit_thresh] - avg_profit
     my_current_invest[0:history.n_males] = 0
-    my_current_invest[profit <= avg_profit] = 0
-    my_current_invest = my_current_invest / sum(my_current_invest) * resources ## this normalizes it to resources...
+    #my_current_invest[profit <= profit_thresh] = 0
+    
+    my_current_invest = my_current_invest / (sum(abs(my_current_invest)) +.0001) * resources ## this normalizes it to resources...
     current_invest[num,:] = my_current_invest
     
     return current_invest
@@ -251,6 +265,7 @@ def m_relative_benefit_adjacency2(resources, history, num):
 ########################
 
 def f_new_strategy(resources, history, num):
+    shift_scaler = .1
     current_turn = history.current_turn
     
     previous_invest = history.invest_matrix2[current_turn - 1]
@@ -262,12 +277,26 @@ def f_new_strategy(resources, history, num):
     my_current_invest = np.zeros(np.shape(my_previous_invest))
     
     profit = my_previous_reward[:] / (my_previous_invest[:] + .0001)
-    profit[history.n_males:] = -1000
-    avg_profit = profit[:history.n_males].mean()
-    my_current_invest[profit > avg_profit] = profit[profit > avg_profit] - avg_profit
+    profit[history.n_males:] = 0
+    #avg_profit = profit[:history.n_males].mean()
+    male_profit = profit[:history.n_males]
+    male_invest = my_previous_invest[:history.n_males]
+    avg_profit = male_profit[male_invest > 0.0].mean() 
+    
+    #avg_profit = profit[my_previous_invest > 0.0].mean()
+    max_profit = profit[:history.n_males].max()
+    min_profit = profit[:history.n_males].min()
+    profit_thresh = max_profit - (max_profit - avg_profit) * .25
+    
+    shift_matrix = (profit - avg_profit) / (max_profit - min_profit + .0001) * shift_scaler
+    my_current_invest = my_previous_invest + shift_matrix
+    
+    #my_current_invest[profit > profit_thresh] = profit[profit > profit_thresh] - avg_profit
     my_current_invest[history.n_males:] = 0
-    my_current_invest[profit <= avg_profit] = 0
-    my_current_invest = my_current_invest / sum(my_current_invest) * resources ## this normalizes it to resources...
+    #my_current_invest[profit <= profit_thresh] = 0
+    my_current_invest[my_current_invest < 0] = 0
+        
+    my_current_invest = my_current_invest / (sum(abs(my_current_invest)) + .0001) * resources ## this normalizes it to resources...
     current_invest[history.n_males + num,:] = my_current_invest
     
     return current_invest
