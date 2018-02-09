@@ -30,8 +30,14 @@ def choose(strategy, resources, history, num, alpha = ALPHA, kappa = KAPPA):
         return m_greedy(resources, history, num)
     elif strategy == 4:
         return m_greedy_theft(resources, history, num)
-
+    elif strategy == 6:
+        return m_relative_benefit_adjacency(resources, history, num)
+    elif strategy == 'M1':
+        return m_new_strategy(resources, history, num) 
+    
 ## Female strategies (by convention, odd)
+    elif strategy == 'F1':
+        return f_new_strategy(resources, history, num) 
     elif strategy == 1:
         return f_high_investors(resources, history, num)
     elif strategy == 3: 
@@ -41,7 +47,7 @@ def choose(strategy, resources, history, num, alpha = ALPHA, kappa = KAPPA):
     elif strategy == 7:
         return f_relative_investment_a(resources, history, num, alpha)
     elif strategy == 9:
-        return f_investment_a(resources, history, num)
+        return f_investment_a(resources, history, num, alpha)
     elif strategy == 11:
         return f_adjacent_quality(resources, history, num, alpha, kappa)
     elif strategy == 13:
@@ -93,6 +99,28 @@ def subtract_output(output,amount,sink):
 
 # Inputs: Resources, history, num of male
 # Output: A New investment matrix, edited for that one male. 
+
+def m_new_strategy(resources, history, num):
+    current_turn = history.current_turn
+    
+    previous_invest = history.invest_matrix2[current_turn - 1]
+    current_invest = np.empty_like(previous_invest)
+    current_invest[:] = previous_invest[:]
+    
+    my_previous_reward = history.reward_matrix2[current_turn - 1,num,:]
+    my_previous_invest = history.invest_matrix2[current_turn - 1,num,:]
+    my_current_invest = np.zeros(np.shape(my_previous_invest))
+    
+    profit = my_previous_reward[:] / (my_previous_invest[:] + .0001)
+    profit[0:history.n_males] = -1000
+    avg_profit = profit[history.n_males:].mean()
+    my_current_invest[profit > avg_profit] = profit[profit > avg_profit] - avg_profit
+    my_current_invest[0:history.n_males] = 0
+    my_current_invest[profit <= avg_profit] = 0
+    my_current_invest = my_current_invest / sum(my_current_invest) * resources ## this normalizes it to resources...
+    current_invest[num,:] = my_current_invest
+    
+    return current_invest
 
 # Strategy to avoid crowding: 0
 def m_evasive(resources, history, num):    
@@ -179,11 +207,70 @@ def m_greedy_theft(resources, history, num):
     for a in aces:
         current_invest[num,a] = current_invest[num,a] + divestment / len(aces)
 # Normalize output
-    #current_invest[num] = normalize(current_invest[num],resources)
-    return current_invest   
+    current_invest[num] = normalize(current_invest[num],resources)
+    return current_invest  
+
+def m_relative_benefit_adjacency(resources, history, num):
+    current_turn = history.current_turn
+    previous_reward = history.reward_matrix[current_turn-1]
+    previous_invest = history.invest_matrix[current_turn-1]
+    current_invest = np.empty_like(previous_invest)
+    benefit = np.zeros(history.n_females)
+    for f in range(history.n_females):
+        benefit[f] = previous_reward[num,f] / (previous_invest[num,f] + .001)
+    avg_benefit = benefit[np.nonzero(benefit)].mean()
+    count = 0
+    aces = []
+    for f in range(history.n_females):
+        relative_benefit = benefit[f] / (sum(benefit) + .0001) * resources  
+        current_invest[num,f] = relative_benefit
+    if sum(current_invest[num,:]) > 1.0:
+        current_invest = current_invest / sum(current_invest) * resources
+    return current_invest
+
+def m_relative_benefit_adjacency2(resources, history, num):
+    current_turn = history.current_turn
+    previous_reward = history.reward_matrix2[current_turn-1]
+    previous_invest = history.invest_matrix[current_turn-1]
+    current_invest = np.empty_like(previous_invest)
+    benefit = np.zeros(history.n_females)
+    for f in range(history.n_females):
+        benefit[f] = previous_reward[num,f] / (previous_invest[num,f] + .001)
+    avg_benefit = benefit[np.nonzero(benefit)].mean()
+    count = 0
+    aces = []
+    for f in range(history.n_females):
+        relative_benefit = benefit[f] / (sum(benefit) + .0001) * resources  
+        current_invest[num,f] = relative_benefit
+    if sum(current_invest[num,:]) > 1.0:
+        current_invest = current_invest / sum(current_invest) * resources
+    return current_invest
+
 ########################
 ## Female Strategies: ##
 ########################
+
+def f_new_strategy(resources, history, num):
+    current_turn = history.current_turn
+    
+    previous_invest = history.invest_matrix2[current_turn - 1]
+    current_invest = np.empty_like(previous_invest)
+    current_invest[:] = previous_invest[:]
+    
+    my_previous_reward = history.reward_matrix2[current_turn - 1,history.n_males + num,:]
+    my_previous_invest = history.invest_matrix2[current_turn - 1,history.n_males + num,:]
+    my_current_invest = np.zeros(np.shape(my_previous_invest))
+    
+    profit = my_previous_reward[:] / (my_previous_invest[:] + .0001)
+    profit[history.n_males:] = -1000
+    avg_profit = profit[:history.n_males].mean()
+    my_current_invest[profit > avg_profit] = profit[profit > avg_profit] - avg_profit
+    my_current_invest[history.n_males:] = 0
+    my_current_invest[profit <= avg_profit] = 0
+    my_current_invest = my_current_invest / sum(my_current_invest) * resources ## this normalizes it to resources...
+    current_invest[history.n_males + num,:] = my_current_invest
+    
+    return current_invest
 
 # Strategy to reward more investment: 1
 def f_high_investors(resources, history, num):
@@ -287,10 +374,10 @@ def f_adjacent_quality_relative(resources, history, num, alpha, kappa):
     q = kappa
     current_turn = history.current_turn
     current_reward = np.empty_like(history.reward_matrix[current_turn-1])
-    adjacency = history.adjacency_matrix[current_turn]
+    adjacency = history.adjacency_matrix[current_turn-1]
     m_quality = history.quality_males
     for m in range(history.n_males):
-        relative_adjacency = adjacency[m,history.n_males + num] / sum(adjacency[:history.n_males,history.n_males + num])
-        current_reward[m,num] = (relative_adjacency)**a * m_quality[m]**q
+        relative_adjacency = adjacency[m,history.n_males + num] / (sum(adjacency[:history.n_males,history.n_males + num]) + .0001)
+        current_reward[m,num] = adjacency[m,history.n_males + num]**0 * (relative_adjacency)**a * m_quality[m]**q
     #current_reward = f_normalize(current_reward,resources,num)
     return current_reward

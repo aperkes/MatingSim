@@ -128,7 +128,7 @@ def get_deviation_final(history):
 def get_degrees(G):
     degrees = []
     for n in G:
-        degrees.append(G.degree[n])
+        degrees.append(G.degree(n))
     return degrees
 
 def get_deviation(G):
