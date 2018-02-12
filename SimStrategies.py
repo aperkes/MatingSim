@@ -34,10 +34,14 @@ def choose(strategy, resources, history, num, alpha = ALPHA, kappa = KAPPA):
         return m_relative_benefit_adjacency(resources, history, num)
     elif strategy == 'M1':
         return m_new_strategy(resources, history, num) 
+    elif strategy == 'M0':
+        return m_classic_strategy(resources, history, num)
     
 ## Female strategies (by convention, odd)
     elif strategy == 'F1':
-        return f_new_strategy(resources, history, num) 
+        return f_new_strategy(resources, history, num)
+    elif strategy == 'F0':
+        return f_classic_strategy(resources, history, num)
     elif strategy == 1:
         return f_high_investors(resources, history, num)
     elif strategy == 3: 
@@ -136,6 +140,38 @@ def m_new_strategy(resources, history, num):
     
     return current_invest
 
+# Inputs: Resources, history, num of male
+# Output: A New investment matrix, edited for that one male.
+
+def m_classic_strategy(resources, history, num):
+    shift_scaler = .01
+    
+    current_turn = history.current_turn
+    
+    previous_invest = history.invest_matrix2[current_turn - 1]
+    current_invest = np.empty_like(previous_invest)
+    current_invest[:] = previous_invest[:]
+    
+    my_previous_reward = history.reward_matrix2[current_turn - 1,num,:]
+    my_previous_invest = history.invest_matrix2[current_turn - 1,num,:]
+    my_current_invest = np.zeros(np.shape(my_previous_invest))
+    
+    profit = my_previous_reward[:] / (my_previous_invest[:] + .0001)
+
+    avg_profit = profit[my_previous_invest > 0.0].mean()
+    
+    shift_matrix = np.zeros(np.shape(profit))    
+    shift_matrix[profit > avg_profit] = shift_scaler
+    shift_matrix[profit < avg_profit] = -shift_scaler
+
+    my_current_invest = my_previous_invest + shift_matrix
+    my_current_invest[my_current_invest < 0] = 0
+    my_current_invest[0:history.n_males] = 0
+    
+    my_current_invest = my_current_invest / (sum(abs(my_current_invest)) +.0001) * resources ## this normalizes it to resources...
+    current_invest[num,:] = my_current_invest    
+    return current_invest
+                
 # Strategy to avoid crowding: 0
 def m_evasive(resources, history, num):    
     current_turn = history.current_turn    
@@ -301,6 +337,35 @@ def f_new_strategy(resources, history, num):
     
     return current_invest
 
+def f_classic_strategy(resources, history, num):
+    shift_scaler = .01
+    
+    current_turn = history.current_turn
+    
+    previous_invest = history.invest_matrix2[current_turn - 1]
+    current_invest = np.empty_like(previous_invest)
+    current_invest[:] = previous_invest[:]
+    
+    my_previous_reward = history.reward_matrix2[current_turn - 1,history.n_males + num,:]
+    my_previous_invest = history.invest_matrix2[current_turn - 1,history.n_males + num,:]
+    my_current_invest = np.zeros(np.shape(my_previous_invest))
+    
+    profit = my_previous_reward[:] / (my_previous_invest[:] + .0001)
+
+    avg_profit = profit[my_previous_invest > 0.0].mean()
+    
+    shift_matrix = np.zeros(np.shape(profit))    
+    shift_matrix[profit > avg_profit] = shift_scaler
+    shift_matrix[profit < avg_profit] = -shift_scaler
+
+    my_current_invest = my_previous_invest + shift_matrix
+    my_current_invest[my_current_invest < 0] = 0
+    my_current_invest[history.n_males:] = 0
+    
+    my_current_invest = my_current_invest / (sum(abs(my_current_invest)) +.0001) * resources 
+    current_invest[history.n_males + num,:] = my_current_invest    
+    return current_invest
+                
 # Strategy to reward more investment: 1
 def f_high_investors(resources, history, num):
     current_turn = history.current_turn
