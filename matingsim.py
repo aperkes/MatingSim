@@ -26,7 +26,7 @@ default_males = 6    # Number of males per trial
 default_females = 6 # Number of females per trial 
 default_q_males = 1.0
 default_q_females = 1.0
-default_turns = 6000  # Number of turns per trial
+default_turns = 1000  # Number of turns per trial
 default_trials = 10  # Number of trials per simulation
 default_alpha = 2.0
 default_slippage = .25 # Amount of adjacency lost per turn
@@ -59,8 +59,9 @@ def adjacency_to_reward(history,turn):
     # Noteably, this is different from the original implementation, in which the reward *is* the female response
     # Because it needs to update immediately (and really everything should...) it needs the current turn also
     
-    alpha = ALPHA # This should be a different parameter. Not everything is alpha
-    omega = 0.5 ## This defines the maximum cost of crowding
+    alpha = 1.0 # Adjacency multiplier. This should be a different parameter. Not everything is alpha
+    iota = 1.5 # Investment multiplier. 
+    omega = 0.4 ## This defines the maximum cost of crowding
     tau = 2.0  ## This defines how quickly crowding cost decreases
     kappa = 0.0 ## This defines base adjacency cost
     rho = 0.0 ## This defines risk from individual (also a cost)
@@ -70,17 +71,19 @@ def adjacency_to_reward(history,turn):
 
     #current_adjacency = history.adjacency_matrix[history.current_turn]   # This way it gets the most recent adjacency
     current_adjacency = turn.adjacency # This way it gets the most recent adjacency
-
-    base_adjacency_cost = kappa
-    individual_risk = rho
+    current_investment = turn.invest2
+    base_adjacency_cost = kappa  #
+    individual_cost = rho # This is an invariant risk of associating with any individual ()
     
     # Presumably, costs/benefits should be different for males and females                  
     for i in range(n_birds):
         for j in range(n_birds):
-            crowding_cost = omega / tau ** (n_birds - current_adjacency[:,j].sum())
+            crowding_cost = omega / (tau ** (n_birds - current_adjacency[:,j].sum()) + .0001)
             adjacency_cost = current_adjacency[i,j] * base_adjacency_cost
-            reward[i,j] = ((current_adjacency[i,j] / current_adjacency[:,j].sum()) ** alpha * history.quality_vector[j] 
-                               - crowding_cost - base_adjacency_cost - individual_risk)
+            adjacency_benefit = (current_adjacency[i,j] / (current_adjacency[:,j].sum() + .0001)) * alpha
+            investment_benefit = current_investment[j,i] ** iota
+            reward[i,j] = (adjacency_benefit * history.quality_vector[j] + investment_benefit * history.quality_vector[j]
+                               - crowding_cost - adjacency_cost - individual_cost)
         reward[i,i] = 0
     
     #If desired, set reward for same-sex pairs to 0
@@ -97,16 +100,20 @@ def investment_to_adjacency(history):
     phi = 0 ## This is a parameter that determines how investment in fleeing scales (get it? phleeing)
     shift_constant = .01 ## This scales down investment to make everything more gradual
     slip_constant = .001
+    min_adjacency = 0.0
+    max_adjacency = 1.0
     previous_adjacency = history.adjacency_matrix[history.current_turn - 1]
     
     ### The following line adds slippage, this is important to avoid crowding when no one is fleeing.
-    previous_adjacency = previous_adjacency - previous_adjacency * slip_constant 
+    previous_adjacency = previous_adjacency - slip_constant 
     
     previous_investment = history.invest_matrix2[history.current_turn - 1]
 
     shift_matrix = previous_investment ** iota
     shift_matrix[previous_investment < 0] = - (phi + (1 - phi) * previous_investment[previous_investment < 0] ** iota) 
-    current_adjacency = previous_adjacency + (1 - previous_adjacency) * shift_matrix * shift_constant 
+    current_adjacency = previous_adjacency + (previous_adjacency) * shift_matrix * shift_constant 
+    current_adjacency[current_adjacency < min_adjacency] = min_adjacency
+    current_adjacency[current_adjacency > max_adjacency] = max_adjacency
     return current_adjacency
 
 
@@ -217,6 +224,7 @@ class Male_bird(object):
         self.strategy = strategy
         self.resources = resources
         self.quality = quality
+
 ##      Seed self investment, and normalize for resources
 #   Functions to adjust and get info. 
 ### NOTE: This is where males apply strategy, strategies are saved externally
@@ -225,7 +233,7 @@ class Male_bird(object):
         return new_investment 
     
     def respond2(self,history):
-        new_investment = SimStrategies.choose('M1', self.resources, history, self.num)
+        new_investment = SimStrategies.choose('M0', self.resources, history, self.num)
         return new_investment
 
 #Class of female cowbirds: 
@@ -247,7 +255,7 @@ class Female_bird(object):
         return new_response 
     
     def respond2(self,history):
-        new_investment = SimStrategies.choose('F1', self.resources, history, self.num)
+        new_investment = SimStrategies.choose('F0', self.resources, history, self.num)
         return new_investment
 
 #Array type object containing cowbirds, allowing cleverness: 
@@ -663,6 +671,7 @@ def plot_network_progression(history):
     #pos = nx.shell_layout(G)
     #pos = nx.kamada_kawai_layout(G)
     
+    #turns = 160
     step = turns / 20
     wait_time = .5
     for t in range(0,turns,step):
@@ -745,9 +754,11 @@ def menu():
     return choice
 
 if __name__ == "__main__":
-    #menu()    
+    #menu()
+    
     history = run_trial()
     #run_simulation(alphas = [1.5]*N_FEMALES)
-    plot_history(history)
-    #plot_network_progression(history)
+    #plot_history(history)
+    plot_history2(history.invest_matrix2)
+    plot_network_progression(history)
     pass
