@@ -8,3 +8,9 @@
 
 #Ignore test files
 *test.py
+
+#Ignore checkpoints
+.ipynb_checkpoints/*
+
+#Ignore old files
+*0.py
