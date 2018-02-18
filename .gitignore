@@ -11,6 +11,9 @@
 
 #Ignore checkpoints
 .ipynb_checkpoints/*
+.ipynb_checkpoints/Mating Sandbox-checkpoint.ipynb
 
 #Ignore old files
 *0.py
+
+
