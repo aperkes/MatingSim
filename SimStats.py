@@ -80,5 +80,9 @@ def get_monogamy_final(history):
                 suitors = history.adjacency_matrix[-1,:,f+history.n_males]
                 if len(suitors[suitors > pair_thresh]) == 1:
                     monos += 1
-    monogamy_ratio = monos / float(pair_bonds)
-    return monogamy_ratio
+    if pair_bonds != 0:
+        monogamy_ratio = monos / float(pair_bonds)
+        return monogamy_ratio
+    else:
+        monogamy_ratio = None
+        return monogamy_ratio
