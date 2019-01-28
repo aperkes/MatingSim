@@ -321,12 +321,7 @@ class Male_bird(object):
 ### NOTE: This is where males apply strategy, strategies are saved externally
 
     def respond(self,history):
-        if self.strategy == 0:
-            new_investment = SimStrategies.choose('M0', self.resources, history, self.num)
-        elif self.strategy == 2:
-            new_investment = SimStrategies.choose('M1', self.resources, history, self.num)
-        else:
-            new_investment = SimStrategies.choose(self.strategy, self.resources, history, self.num)
+        new_investment = SimStrategies.choose(self.strategy, self.resources, history, self.num)
         return new_investment
 
 #Class of female cowbirds: 

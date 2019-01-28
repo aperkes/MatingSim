@@ -41,6 +41,8 @@ def choose(strategy, resources, history, num, alpha = ALPHA, kappa = KAPPA):
         return f_classic_strategy(resources, history, num)
     elif strategy == 5:
         return f_optimal_strategy(resources, history, num)
+    elif strategy == 7:
+        return f_nash_strategy(resources, history, num)
     else:   
         print("No strategy found, quitting")
         sys.exit()
@@ -96,8 +98,9 @@ def m_optimal_strategy(resources, history, num):
     current_invest = history.invest_matrix[history.current_turn]
     future_invest = np.array(current_invest)
      
-    previous_reward = history.reward_matrix[history.current_turn - 1]
-    current_reward = history.reward_matrix[history.current_turn]
+    #NOTE: Unhack this: 
+    previous_reward = history.reward_matrix[history.current_turn - 1] - previous_invest * .1
+    current_reward = history.reward_matrix[history.current_turn] - current_invest * .1
     
     previous_adjacency = history.adjacency_matrix[history.current_turn - 1]
     current_adjacency = history.adjacency_matrix[history.current_turn]
@@ -107,10 +110,13 @@ def m_optimal_strategy(resources, history, num):
     delta_adj = current_adjacency[bird_index,:] - previous_adjacency[bird_index,:]
 
     random_shift = (.5 - np.random.rand(n_birds)) * .01 # << This decides how much random wiggle there should be.
-    future_invest[bird_index,:] = current_invest[bird_index,:] + delta_inv * delta_adj + random_shift
+    future_invest[bird_index,:] = current_invest[bird_index,:] + delta_inv * delta_rew + random_shift
 
     future_invest[future_invest < 0] = 0
 
+## Set same-sex investment to 0
+    if True:
+        future_invest[bird_index,:history.n_males] = 0 
 ## Deal with resource consumption...
     if sum(future_invest[bird_index,:]) > resources:
         #print('We have to scale it somehow...')
@@ -196,6 +202,28 @@ def m_classic_strategy(resources, history, num):
 ########################
 
 ## Strategy to optimize through random walk of sorts
+def f_nash_strategy(resources, history, num):
+    bird_index = history.n_males + num
+    
+    n_birds = history.n_males + history.n_females
+    resources = history.params.ress_f[num]
+
+    current_invest = history.invest_matrix[history.current_turn]
+    future_invest = np.array(current_invest)
+     
+    for m in range(history.n_males):
+        #pdb.set_trace()
+        if m != num:
+            future_invest[bird_index,m] = current_invest[m,bird_index]
+        elif m == num:
+            future_invest[bird_index,m] = 0
+    if True:
+        future_invest[bird_index,history.n_males:] = 0 
+        pass
+    if sum(future_invest[bird_index,:]) > resources:
+        future_invest[bird_index,:] = future_invest[bird_index,:] / np.sum(future_invest[bird_index,:])
+    return future_invest
+
 def f_optimal_strategy(resources, history, num):
     bird_index = history.n_males + num
     n_birds = history.n_males + history.n_females
@@ -214,7 +242,10 @@ def f_optimal_strategy(resources, history, num):
     random_shift = (.5 - np.random.rand(n_birds)) * .01 # << This decides how much random wiggle there should be.
     future_invest[bird_index,:] = current_invest[bird_index,:] + delta_inv * delta_rew + random_shift
     future_invest[future_invest < 0] = 0
-    
+  
+    # Optionally set same-sex investment to 0 
+    if True:
+        future_invest[bird_index,:] = 0 
 ## Add a random bit
 ## Deal with resource consumption...
     if sum(future_invest[bird_index,:]) > resources:

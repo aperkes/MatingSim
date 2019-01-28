@@ -13,3 +13,4 @@ record is a list of dicts, containing stats defined in SimStats.py
 
 You'll need the python module networkX for this to run.
  
+fin
