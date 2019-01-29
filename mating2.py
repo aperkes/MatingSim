@@ -64,11 +64,17 @@ def adjacency_to_reward2(history, turn, params = None):
         adjacency_vector = current_adjacency[:,f]
         investment_vector = current_investment[:,f]
         prob_offspring = speed_date(adjacency_vector)
-        total_effect, base_effect_vector, marginal_cost_vector = courtship_effect(investment_vector)
-        marginal_quality = compare_males(adjacency_vector,history.quality_vector)
+        search_success, base_effect_vector, marginal_effect_vector = courtship_effect(investment_vector, adjacency_vector)
+        expected_quality, marginal_quality = compare_males(adjacency_vector,history.quality_vector)
         for m in range(n_males):
-            reward[m,f] = total_effect * history.quality_vector[f] *  prob_offspring[m] * history.quality_vector[m]
-            reward[f,m] = history.quality_vector[m] * prob_offspring[m] * base_effect_vector[m] - marginal_cost_vector[m] - marginal_quality[m]
+            reward[m,f] = search_success * history.quality_vector[f] *  prob_offspring[m] * history.quality_vector[m]
+            #reward[f,m] = history.quality_vector[m] * prob_offspring[m] * base_effect_vector[m] - marginal_effect_vector[m] + marginal_quality[m]
+            reward[f,m] = search_success * expected_quality - marginal_effect_vector[m] * marginal_quality[m]
+    #pdb.set_trace()
+## What I think I want here as reward is the difference between expected output with the male vs without the male
+    if max(investment_vector) > 0:
+        #pdb.set_trace()
+        pass
     return reward
 
 ## Given an adjacency vector (and maybe some history) it determines probability of getting offspring
@@ -76,34 +82,40 @@ def speed_date(adjacency_vector):
     prob_offspring = adjacency_vector / (np.sum(adjacency_vector) + .0001)
     return prob_offspring
 
-def courtship_effect(investment_vector):
+def courtship_effect(investment_vector, adjacency_vector):
     k = .5 ## Defines the inflection point of search.
-    b = 2 ## Defines base search time
     a = 5 ## defines 'tightness' of the sigmoid
 
-    s = lambda x : 1 / (1 + np.e ** (-a * (b - x - k))) ## Functional effect of search time on time alone. This assumes male presence is monotonic, bad
-    base_success = s(0)
+    c = 10 ## defines how fast females hit saturation for reproductive output from male  investment
+
+    s = lambda i : 1 / (1 + np.e ** (-a * (k - i))) ## Functional effect of investment on egg survival/placement. This assumes male presence is monotonic, bad
+    r = lambda i : c * np.log(1 + i) / (1 + c * np.log(1 + i)) ## Functional effect of investment on number of eggs
+
     total_investment = np.sum(investment_vector)
-    total_effect = base_success - s(total_investment) ## The effect of all males being there. 
+    total_adjacency = np.sum(adjacency_vector)
+    search_success = s(total_investment) * r(total_adjacency) ## The effect of all males being there. 
     base_effect_vector = np.zeros_like(investment_vector)
-    marginal_cost_vector = np.zeros_like(investment_vector)
+    marginal_effect_vector = np.zeros_like(investment_vector)
+    if max(investment_vector) > 0:
+        #pdb.set_trace()
+        pass
     for m in range(len(investment_vector)):
-        base_effect_vector[m] = base_success - s(investment_vector[m]) ## The effect of this male just being there (if no one else were there)
-        marginal_cost_vector[m] = base_success - s(total_investment - investment_vector[m]) ## The effect of this male stepping out
-    return total_effect, base_effect_vector, marginal_cost_vector
+        base_effect_vector[m] = s(investment_vector[m]) * r(adjacency_vector[m]) ## The effect of this male just being there (if no one else were there)
+        marginal_effect_vector[m] = s(total_investment - investment_vector[m]) * r(total_adjacency - adjacency_vector[m])  ## The search success if this male were to step out
+    return search_success, base_effect_vector, marginal_effect_vector
 
 def compare_males(adjacency_vector,quality_vector):
     marginal_quality = np.zeros_like(adjacency_vector)
     prob_offspring = speed_date(adjacency_vector)
     offspring_vector = prob_offspring * quality_vector
-    expected_quality = offspring_vector.sum()
+    expected_quality = offspring_vector.sum() ## The average quality of an offspring (assuming it's even based on adjacency)
     for m in range(len(adjacency_vector)):
         temp_prob = np.array(offspring_vector)
         temp_prob[m] = 0
         temp_prob = temp_prob / (np.sum(temp_prob) + .0001)
         temp_offspring = temp_prob * quality_vector
-        marginal_quality[m] = expected_quality - temp_offspring.sum()
-    return marginal_quality
+        marginal_quality[m] = temp_offspring.sum() ## The marginal quality, that is, the expected quality if male m were to step out
+    return expected_quality, marginal_quality
 # just two decisions to make: 
 # Who actually got copulations? 
 # What's the probability that that copulation produced a successful offspring? 
@@ -151,8 +163,8 @@ def adjacency_to_reward(history, turn, params):
 
 def investment_to_adjacency2(history, params = None):
 ## Decision: Should there be explicity historisis with adjacency? 
-    previous_investment = history.invest_matrix[history.current_turn-1]
-    current_adjacency = previous_investment - np.transpose(previous_investment)
+    current_investment = history.invest_matrix[history.current_turn]
+    current_adjacency = current_investment - np.transpose(current_investment)
     current_adjacency[current_adjacency < 0] = 0
     return current_adjacency
 
@@ -269,8 +281,8 @@ class Aviary(object):
         #turn.invest = self.mrespond(history)
         ## mrespond & frespond also 
         #turn.reward = self.frespond(history)
-        turn.adjacency = self.update_adjacency(history, turn)
         turn.invest = self.update_invest(history, turn)
+        turn.adjacency = self.update_adjacency(history, turn)
         turn.reward = self.update_reward(history, turn)
         return turn
 
@@ -287,16 +299,17 @@ class Aviary(object):
     
     def update_adjacency(self,history,turn):
         
-        current_adjacency = investment_to_adjacency2(history, self.params)
-        return current_adjacency
+        #current_adjacency = investment_to_adjacency2(history, self.params)
+        history.adjacency_matrix[turn.n] = investment_to_adjacency2(history, self.params)
+        return history.adjacency_matrix[turn.n]
     
     def update_invest(self,history,turn):
         ## This provides both males and females an opportunity to return investment and competition
         ## For it to work, I need to make sure everything works cleanly
-        previous_invest = history.invest_matrix[turn.n - 1]
-        male_invest = np.zeros(np.shape(previous_invest))
-        female_invest = np.zeros(np.shape(previous_invest))
-        history.invest_matrix[turn.n] = previous_invest 
+        #previous_invest = history.invest_matrix[turn.n - 1]
+        #male_invest = np.zeros(np.shape(previous_invest))
+        #female_invest = np.zeros(np.shape(previous_invest))
+        #history.invest_matrix[turn.n] = previous_invest 
         for m in range(history.n_males):
             history.invest_matrix[turn.n] = self.males[m].respond(history)
         for f in range(history.n_females):
@@ -305,8 +318,10 @@ class Aviary(object):
         return history.invest_matrix[turn.n]
     
     def update_reward(self,history,turn):
-        new_reward = adjacency_to_reward2(history,turn, self.params)
-        return new_reward
+        #new_reward = adjacency_to_reward2(history,turn, self.params)
+        history.reward_matrix[turn.n] = adjacency_to_reward2(history,turn, self.params)
+
+        return history.reward_matrix[turn.n]
         
         
 class Male_bird(object):
@@ -473,9 +488,11 @@ def run_trial(params = Parameters(), initial_conditions = None):
     #history.reward_matrix[0] = aviary.frespond(history)
     history.advance()
 # For every turn, calculate response and record it in history.
+# NOTE: It looks like I could streamline this 
     for t in range(n_turns-1):
         turn = aviary.respond(history)
-        history.record(turn)
+        history.advance()
+        #history.record(turn)
     return history
        
 def run_simulation(params = Parameters()):
