@@ -246,33 +246,50 @@ def f_nash_strategy(resources, history, num):
 
 def f_optimal_strategy(resources, history, num):
     bird_index = history.n_males + num
-    n_birds = history.n_males + history.n_females
     resources = history.params.ress_f[num]
+    n_birds = history.n_males + history.n_females
 
-    previous_invest = history.invest_matrix[history.current_turn - 1]
-    current_invest = history.invest_matrix[history.current_turn]
-    future_invest = np.array(current_invest)
+    #NOTE: Because these are pointers, any change to future_invest will change the invest matrix simultaneously.
+    previous_invest = history.invest_matrix[history.current_turn - 2]
+    current_invest = history.invest_matrix[history.current_turn - 1]
+    future_invest = history.invest_matrix[history.current_turn]
      
-    previous_reward = history.reward_matrix[history.current_turn - 1]
-    current_reward = history.reward_matrix[history.current_turn]
+    #NOTE: Unhack this: 
+    previous_reward = history.reward_matrix[history.current_turn - 2] - previous_invest * .1
+    current_reward = history.reward_matrix[history.current_turn - 1] - current_invest * .1
     
+    previous_adjacency = history.adjacency_matrix[history.current_turn - 2]
+    current_adjacency = history.adjacency_matrix[history.current_turn - 1]
+
     delta_inv = current_invest[bird_index,:] - previous_invest[bird_index,:]
     delta_rew = current_reward[bird_index,:] - previous_reward[bird_index,:]
+    delta_adj = current_adjacency[bird_index,:] - previous_adjacency[bird_index,:]
 
-    random_shift = (.5 - np.random.rand(n_birds)) * .01 # << This decides how much random wiggle there should be.
-    future_invest[bird_index,:] = current_invest[bird_index,:] + delta_inv * delta_rew + random_shift
+## Try using inv/rew just to get the sign right, and then base the step on...reward
+## This turns out to be a pretty key feature, it gets rid of a lot of feedback issues from multiplying delta_inv by delta_reward
+    delta_inv[delta_inv > 0] = 1
+    delta_inv[delta_inv < 0] = -1
+    delta_rew[delta_rew > 0] = 1
+    delta_rew[delta_rew < 0] = -1
+
+    if max(np.abs(delta_inv)) == 0: # and np.random.randint(10) > 5:
+        random_shift = (.5 - np.random.rand(n_birds)) * (1 - current_reward[bird_index,:]) # << This decides how much random wiggle there should be.
+        #pdb.set_trace()
+    else:
+        random_shift = 0
+    random_shift = 0
+    future_invest[bird_index,:] = current_invest[bird_index,:] + delta_inv * delta_rew * (1 - current_reward[bird_index,:]) * .1 + random_shift 
+
     future_invest[future_invest < 0] = 0
-  
-    # Optionally set same-sex investment to 0 
+
+## Set same-sex investment to 0
     if True:
-        future_invest[bird_index,:] = 0 
-## Add a random bit
+        future_invest[bird_index,history.n_males:] = 0 
 ## Deal with resource consumption...
     if sum(future_invest[bird_index,:]) > resources:
         #print('We have to scale it somehow...')
         future_invest[bird_index,:] = future_invest[bird_index,:] / np.sum(future_invest[bird_index,:])
     return future_invest
-
 
 ## Same as classic, but female invests more in poor investors (given the new paradigm of adjacency=male - female investment
 def f_flight_strategy(resources, history, num):

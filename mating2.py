@@ -70,6 +70,9 @@ def adjacency_to_reward2(history, turn, params = None):
             reward[m,f] = search_success * history.quality_vector[f] *  prob_offspring[m] * history.quality_vector[m]
             #reward[f,m] = history.quality_vector[m] * prob_offspring[m] * base_effect_vector[m] - marginal_effect_vector[m] + marginal_quality[m]
             reward[f,m] = search_success * expected_quality - marginal_effect_vector[m] * marginal_quality[m]
+        reward[f,f] = search_success * expected_quality
+    for m in range(n_males):
+        reward[m,m] = np.sum(reward[m,:])
     #pdb.set_trace()
 ## What I think I want here as reward is the difference between expected output with the male vs without the male
     if max(investment_vector) > 0:
