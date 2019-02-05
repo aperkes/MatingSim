@@ -32,7 +32,8 @@ def choose(strategy, resources, history, num, alpha = ALPHA, kappa = KAPPA):
         return m_classic_strategy(resources, history, num)
     elif strategy == 4:
         return m_optimal_strategy(resources, history, num)
-    
+    elif strategy == 6:
+        return m_single_strategy(resources, history, num)    
 ## Female strategies (by convention, odd)
     elif strategy == 3:
         return f_flight_strategy(resources, history, num)
@@ -43,6 +44,8 @@ def choose(strategy, resources, history, num, alpha = ALPHA, kappa = KAPPA):
         return f_optimal_strategy(resources, history, num)
     elif strategy == 7:
         return f_nash_strategy(resources, history, num)
+    elif strategy == 9:
+        return f_single_strategy(resources, history, num)
     else:   
         print("No strategy found, quitting")
         sys.exit()
@@ -84,9 +87,67 @@ def subtract_output(output,amount,sink):
     output[source] = output[source] - amount
     return output
 
+def binary_delta(input_array):
+    output_array = np.empty_like(input_array)
+    output_array[input_array > 0] = 1
+    output_array[input_array < 0] = -1
+    output_array[input_array == 0] = 0
+    return output_array
+    
 ######################
 ## Male strategies: ##
 ######################
+
+## Strategy which enforces each male to only sing to one female at a time: 
+def m_single_strategy(resources,history, num):
+    bird_index = num
+    resources = history.params.ress_m[num]
+    n_birds = history.n_males + history.n_females
+
+    #NOTE: Because these are pointers, any change to future_invest will change the invest matrix simultaneously.
+#   This could be fixed as below:
+#   previous_invest = np.array(history.invest_matrix[history.current_turn - 2]) 
+    previous_invest = history.invest_matrix[history.current_turn - 2]
+    current_invest = history.invest_matrix[history.current_turn - 1]
+    future_invest = history.invest_matrix[history.current_turn]
+    #NOTE: Unhack this: 
+    previous_reward = history.reward_matrix[history.current_turn - 2] - previous_invest * .1
+    current_reward = history.reward_matrix[history.current_turn - 1] - current_invest * .1
+    
+    previous_adjacency = history.adjacency_matrix[history.current_turn - 2]
+    current_adjacency = history.adjacency_matrix[history.current_turn - 1]
+
+    previous_rel_adj = previous_adjacency[bird_index,history.n_males:] / np.sum(previous_adjacency[:history.n_males,history.n_males:],1)
+    current_rel_adj = current_adjacency[bird_index,history.n_males:] / np.sum(current_adjacency[:history.n_males,history.n_males:],1)
+    delta_inv = current_invest[bird_index,:] - previous_invest[bird_index,:]
+    delta_rew = current_reward[bird_index,:] - previous_reward[bird_index,:]
+    delta_adj = current_adjacency[bird_index,:] - previous_adjacency[bird_index,:]
+    delta_rel_adj = current_rel_adj - previous_rel_adj
+
+    delta_inv = binary_delta(delta_inv)
+    delta_rew = binary_delta(delta_rew)
+    delta_rel_adj = binary_delta(delta_rel_adj)
+    
+    priority = np.array(current_rel_adj)
+    for f in range(history.n_females):
+        f_max = np.argmax(priority)
+        f_index = f_max + history.n_males
+        if delta_rel_adj[f_max] > 0:
+            future_invest[num,f_index] = previous_invest[num,f_index]
+        elif delta_rel_adj[f_max] < 0:
+            future_invest[num,f_index] = abs(previous_invest[num,f_index] - 1)
+        elif delta_rel_adj[f_max] == 0:
+            if np.random.random() > .5:
+                future_invest[num,f_index] = abs(previous_invest[num,f_index] - 1)
+            else:
+                future_invest[num,f_index] = previous_invest[num,f_index]
+        if future_invest[num,f_index] > 0:
+            return future_invest
+        else:
+            priority[f_max] = 0 
+    return future_invest
+     
+
 
 ## Strategy to optimize through random walk of sorts
 def m_optimal_strategy(resources, history, num):
@@ -220,6 +281,32 @@ def m_classic_strategy(resources, history, num):
 ########################
 ## Female Strategies: ##
 ########################
+
+## Strategy for when males can only invest in one female:
+def f_single_strategy(resources, history, num):
+    bird_index = history.n_males + num
+    
+    n_birds = history.n_males + history.n_females
+    resources = history.params.ress_f[num]
+
+    current_invest = history.invest_matrix[history.current_turn]
+    future_invest = np.array(current_invest)
+
+    current_reward = history.reward_matrix[history.current_turn - 1]
+    current_adjacency = history.adjacency_matrix[history.current_turn -1]
+     
+    for m in range(history.n_males):
+        #pdb.set_trace()
+        if m != num:
+            future_invest[bird_index,m] = current_adjacency[bird_index,m] + current_invest[m,bird_index]
+        elif m == num:
+            future_invest[bird_index,m] = 1 - current_reward[bird_index,m]
+    if True:
+        future_invest[bird_index,history.n_males:] = 0 
+        pass
+    if sum(future_invest[bird_index,:]) > resources:
+        future_invest[bird_index,:] = future_invest[bird_index,:] / np.sum(future_invest[bird_index,:])
+    return future_invest
 
 ## Strategy to optimize through random walk of sorts
 def f_nash_strategy(resources, history, num):

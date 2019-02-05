@@ -21,17 +21,17 @@ import pdb
 N_MALES = 6
 N_FEMALES = 6
 RES_M = 1.0       # Resource limitation for a male
-RES_F = 1.0       # Resource limitation for a female
+RES_F = 6.0       # Resource limitation for a female
 RESS_M = [RES_M] * N_MALES     # Resource limitation vector for all males
 RESS_F = [RES_F] * N_FEMALES   # Resource limitation vector for all females
 Q_MALE = 1.0      # Default Quality for a male
 Q_FEMALE = 1.0    # Default Quality for a female
 Q_MALES = [Q_MALE] * N_MALES     # Quality vector for maless
 Q_FEMALES = [Q_FEMALE] * N_FEMALES # Quality vector for females 
-TURNS = 1000       # Number of turns per trial
+TURNS = 500       # Number of turns per trial
 TRIALS = 10        # Number of trials per simulation
-STRAT_M = 0        # Default strategy for males
-STRAT_F = 1        # Default strategy for females 
+STRAT_M = 6        # Default strategy for males
+STRAT_F = 9        # Default strategy for females 
 STRATS_M = [STRAT_M] * N_MALES       # Strategy vector for males
 STRATS_F = [STRAT_F] * N_FEMALES     # Strategy vector for females
 ALPHA = 1.0        # Alpha value scales the adjacency matrix 
@@ -48,6 +48,90 @@ DECAY = .01         # decay constant
 BUMP = .01         # random encounter rate
 MIN_ADJ = .01      # Minimum adjacency
 MAX_ADJ = 1.0      # Maximum adjacency
+
+## These are the functions that define how adjacency translates to reward
+k = .5 ## Defines the inflection point of search.
+a = 5 ## defines 'tightness' of the sigmoid
+c = 10 ## defines how fast females hit saturation for reproductive output from male  investment
+
+s_func = lambda i : 1 / (1 + np.e ** (-a * (k - i))) ## Functional effect of investment on egg survival/placement. This assumes male presence is monotonic, bad
+r_func = lambda i : c * np.log(1 + i) / (1 + c * np.log(1 + i)) ## Functional effect of male investment on number of eggs
+
+## Adjacency to reward function for when males can only court one female at a time.
+def adjacency_to_reward3(history, turn, params = None):
+    #pdb.set_trace()
+    params = history.params
+
+    reward = np.zeros(np.shape(history.reward_matrix[0]))
+    n_males, n_females = history.n_males, history.n_females
+    n_birds = n_males + n_females
+    current_turn = history.current_turn
+
+## Average past 10 turns, otherwise everything is the same, until I add some fancy search synergy
+    if current_turn < 10:
+        current_adjacency = np.mean(history.adjacency_matrix[:current_turn],0)
+        current_investment = np.mean(history.invest_matrix[:current_turn],0)
+    else:
+        current_adjacency = np.mean(history.adjacency_matrix[current_turn - 9:current_turn+1],0)
+        current_investment = np.mean(history.invest_matrix[current_turn - 9:current_turn+1],0)
+
+    for f in range(n_males,n_males + n_females):
+        adjacency_vector = current_adjacency[:,f]
+        investment_vector = current_investment[:,f]
+        prob_offspring = speed_date(adjacency_vector)
+        search_success, base_effect_vector, marginal_effect_vector = courtship_effect(investment_vector, adjacency_vector)
+        expected_quality, marginal_quality = compare_males(adjacency_vector,history.quality_vector)
+        for m in range(n_males):
+            reward[m,f] = search_success * history.quality_vector[f] *  prob_offspring[m] * history.quality_vector[m]
+            #reward[f,m] = history.quality_vector[m] * prob_offspring[m] * base_effect_vector[m] - marginal_effect_vector[m] + marginal_quality[m]
+            reward[f,m] = search_success * expected_quality - marginal_effect_vector[m] * marginal_quality[m]
+        reward[f,f] = search_success * expected_quality
+    for m in range(n_males):
+        reward[m,m] = np.sum(reward[m,:])
+    #pdb.set_trace()
+## What I think I want here as reward is the difference between expected output with the male vs without the male
+    if max(investment_vector) > 0:
+        #pdb.set_trace()
+        pass
+    return reward
+
+## Given an adjacency vector (and maybe some history) it determines probability of getting offspring
+def speed_date(adjacency_vector):
+    prob_offspring = adjacency_vector / (np.sum(adjacency_vector) + .0001)
+    return prob_offspring
+
+def courtship_effect(investment_vector, adjacency_vector):
+    global s_func, r_func
+
+    total_investment = np.sum(investment_vector)
+    total_adjacency = np.sum(adjacency_vector)
+    search_success = s_func(total_investment) * r_func(total_adjacency) ## The effect of all males being there. 
+    base_effect_vector = np.zeros_like(investment_vector)
+    marginal_effect_vector = np.zeros_like(investment_vector)
+    if max(investment_vector) > 0:
+        #pdb.set_trace()
+        pass
+    for m in range(len(investment_vector)):
+        base_effect_vector[m] = s_func(investment_vector[m]) * r_func(adjacency_vector[m]) ## The effect of this male just being there (if no one else were there)
+        marginal_effect_vector[m] = s_func(total_investment - investment_vector[m]) * r_func(total_adjacency - adjacency_vector[m])  ## The search success if this male were to step out
+    return search_success, base_effect_vector, marginal_effect_vector
+
+def compare_males(adjacency_vector,quality_vector):
+    marginal_quality = np.zeros_like(adjacency_vector)
+    prob_offspring = speed_date(adjacency_vector)
+    offspring_vector = prob_offspring * quality_vector
+    expected_quality = offspring_vector.sum() ## The average quality of an offspring (assuming it's even based on adjacency)
+    for m in range(len(adjacency_vector)):
+        temp_prob = np.array(offspring_vector)
+        temp_prob[m] = 0
+        temp_prob = temp_prob / (np.sum(temp_prob) + .0001)
+        temp_offspring = temp_prob * quality_vector
+        marginal_quality[m] = temp_offspring.sum() ## The marginal quality, that is, the expected quality if male m were to step out
+    return expected_quality, marginal_quality
+# just two decisions to make: 
+# Who actually got copulations? 
+# What's the probability that that copulation produced a successful offspring? 
+ 
 
 ## Functions that define how matrices covert, these are two of the central mechanisms of the simulation
 ## This could get time consuming, maybe I shouldn't always compute reward...
@@ -79,50 +163,7 @@ def adjacency_to_reward2(history, turn, params = None):
         #pdb.set_trace()
         pass
     return reward
-
-## Given an adjacency vector (and maybe some history) it determines probability of getting offspring
-def speed_date(adjacency_vector):
-    prob_offspring = adjacency_vector / (np.sum(adjacency_vector) + .0001)
-    return prob_offspring
-
-def courtship_effect(investment_vector, adjacency_vector):
-    k = .5 ## Defines the inflection point of search.
-    a = 5 ## defines 'tightness' of the sigmoid
-
-    c = 10 ## defines how fast females hit saturation for reproductive output from male  investment
-
-    s = lambda i : 1 / (1 + np.e ** (-a * (k - i))) ## Functional effect of investment on egg survival/placement. This assumes male presence is monotonic, bad
-    r = lambda i : c * np.log(1 + i) / (1 + c * np.log(1 + i)) ## Functional effect of investment on number of eggs
-
-    total_investment = np.sum(investment_vector)
-    total_adjacency = np.sum(adjacency_vector)
-    search_success = s(total_investment) * r(total_adjacency) ## The effect of all males being there. 
-    base_effect_vector = np.zeros_like(investment_vector)
-    marginal_effect_vector = np.zeros_like(investment_vector)
-    if max(investment_vector) > 0:
-        #pdb.set_trace()
-        pass
-    for m in range(len(investment_vector)):
-        base_effect_vector[m] = s(investment_vector[m]) * r(adjacency_vector[m]) ## The effect of this male just being there (if no one else were there)
-        marginal_effect_vector[m] = s(total_investment - investment_vector[m]) * r(total_adjacency - adjacency_vector[m])  ## The search success if this male were to step out
-    return search_success, base_effect_vector, marginal_effect_vector
-
-def compare_males(adjacency_vector,quality_vector):
-    marginal_quality = np.zeros_like(adjacency_vector)
-    prob_offspring = speed_date(adjacency_vector)
-    offspring_vector = prob_offspring * quality_vector
-    expected_quality = offspring_vector.sum() ## The average quality of an offspring (assuming it's even based on adjacency)
-    for m in range(len(adjacency_vector)):
-        temp_prob = np.array(offspring_vector)
-        temp_prob[m] = 0
-        temp_prob = temp_prob / (np.sum(temp_prob) + .0001)
-        temp_offspring = temp_prob * quality_vector
-        marginal_quality[m] = temp_offspring.sum() ## The marginal quality, that is, the expected quality if male m were to step out
-    return expected_quality, marginal_quality
-# just two decisions to make: 
-# Who actually got copulations? 
-# What's the probability that that copulation produced a successful offspring? 
-    
+   
      
 def adjacency_to_reward(history, turn, params):
     ## This provides males and females with a reward function on which to base decisions
@@ -163,6 +204,15 @@ def adjacency_to_reward(history, turn, params):
     #reward[n_males:,n_males:] = 0
       
     return reward
+
+def investment_to_adjacency3(history, params = None):
+## Decision: Should there be explicit historisis with adjacency? 
+    past_adjacency = history.adjacency_matrix[history.current_turn - 1]
+    current_investment = history.invest_matrix[history.current_turn]
+    current_adjacency = past_adjacency + current_investment - np.transpose(current_investment)
+    current_adjacency[current_adjacency < 0] = 0
+    current_adjacency[current_adjacency > 1] = 1
+    return current_adjacency
 
 def investment_to_adjacency2(history, params = None):
 ## Decision: Should there be explicity historisis with adjacency? 
@@ -303,7 +353,8 @@ class Aviary(object):
     def update_adjacency(self,history,turn):
         
         #current_adjacency = investment_to_adjacency2(history, self.params)
-        history.adjacency_matrix[turn.n] = investment_to_adjacency2(history, self.params)
+        #history.adjacency_matrix[turn.n] = investment_to_adjacency2(history, self.params)
+        history.adjacency_matrix[turn.n] = investment_to_adjacency3(history, self.params)
         return history.adjacency_matrix[turn.n]
     
     def update_invest(self,history,turn):
@@ -322,7 +373,8 @@ class Aviary(object):
     
     def update_reward(self,history,turn):
         #new_reward = adjacency_to_reward2(history,turn, self.params)
-        history.reward_matrix[turn.n] = adjacency_to_reward2(history,turn, self.params)
+        #history.reward_matrix[turn.n] = adjacency_to_reward2(history,turn, self.params)
+        history.reward_matrix[turn.n] = adjacency_to_reward3(history,turn, self.params)
 
         return history.reward_matrix[turn.n]
         
@@ -397,8 +449,13 @@ class History(object):
     def initialize(self,initial_conditions = None): #set first investment conditions
         
         if initial_conditions == None:
-            self.invest_matrix[0] = np.random.random([self.n_males + self.n_females, self.n_males + self.n_females]) * (1 - np.identity(self.n_males + self.n_females))
-            self.invest_matrix[0] = self.invest_matrix[0] / self.invest_matrix[0].sum(1)
+            if False:
+                self.invest_matrix[0] = np.random.random([self.n_males + self.n_females, self.n_males + self.n_females]) * (1 - np.identity(self.n_males + self.n_females))
+                self.invest_matrix[0] = self.invest_matrix[0] / self.invest_matrix[0].sum(1)
+            else:
+                for m in range(self.n_males):
+                    f = self.n_males + np.random.randint(self.n_females)
+                    self.invest_matrix[0,m,f] = 1
             self.adjacency_matrix[0] = np.random.random(np.shape(self.invest_matrix[0])) * (1 - np.identity(self.n_males + self.n_females))
             self.reward_matrix[0] = self.update_reward_hist()
         else:
@@ -623,9 +680,10 @@ def plot_network(adjacency):
         
 
 if __name__ == "__main__":
-    
-    #history = run_trial()
+    history = run_trial()
     #run_simulation(alphas = [1.5]*N_FEMALES)
-    #plot_history(history)
+    plot_history(history.invest_matrix)
+    plot_history(history.adjacency_matrix)
+    plot_history(history.reward_matrix)
     #plot_network_progression(history)
     pass
