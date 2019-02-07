@@ -58,7 +58,7 @@ s_func = lambda i : 1 / (1 + np.e ** (-a * (k - i))) ## Functional effect of inv
 r_func = lambda i : c * np.log(1 + i) / (1 + c * np.log(1 + i)) ## Functional effect of male investment on number of eggs
 
 ## Adjacency to reward function for when males can only court one female at a time.
-def adjacency_to_reward3(history, turn, params = None):
+def adjacency_to_reward3(history, turn = None, params = None):
     #pdb.set_trace()
     params = history.params
 
@@ -210,6 +210,7 @@ def investment_to_adjacency3(history, params = None):
     past_adjacency = history.adjacency_matrix[history.current_turn - 1]
     current_investment = history.invest_matrix[history.current_turn]
     current_adjacency = past_adjacency + current_investment - np.transpose(current_investment)
+    current_adjacency[history.n_males:,:history.n_males] = current_adjacency[:history.n_males,history.n_males:]
     current_adjacency[current_adjacency < 0] = 0
     current_adjacency[current_adjacency > 1] = 1
     return current_adjacency
@@ -456,8 +457,11 @@ class History(object):
                 for m in range(self.n_males):
                     f = self.n_males + np.random.randint(self.n_females)
                     self.invest_matrix[0,m,f] = 1
-            self.adjacency_matrix[0] = np.random.random(np.shape(self.invest_matrix[0])) * (1 - np.identity(self.n_males + self.n_females))
-            self.reward_matrix[0] = self.update_reward_hist()
+            #pdb.set_trace()
+            #self.adjacency_matrix[0] = np.random.random(np.shape(self.invest_matrix[0])) * (1 - np.identity(self.n_males + self.n_females))
+            self.adjacency_matrix[0] = np.zeros_like(self.invest_matrix[0])
+            #self.reward_matrix[0] = self.update_reward_hist()
+            self.reward_matrix[0] = adjacency_to_reward3(self)
         else:
             self.invest_matirx[0] = initial_conditions.invest
             self.reward_matrix[0] = initial_conditions.reward
@@ -540,13 +544,9 @@ def run_trial(params = Parameters(), initial_conditions = None):
 ## initialize history
     history = History(params)
     history.initialize(initial_conditions)
+    history.advance()
 # Build an aviary using the given parameters
     aviary = Aviary(params)
-# Initialize initial investment (based on male resources, if specified)
-    history.initialize()
-# Get first female response:
-    #history.reward_matrix[0] = aviary.frespond(history)
-    history.advance()
 # For every turn, calculate response and record it in history.
 # NOTE: It looks like I could streamline this 
     for t in range(n_turns-1):
