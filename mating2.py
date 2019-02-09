@@ -18,8 +18,8 @@ import SimStrategies,SimStats
 import pdb
 # Default parameters. These can be defined invdividually as well through the parameter class. 
 
-N_MALES = 6
-N_FEMALES = 6
+N_MALES = 5
+N_FEMALES = 5
 RES_M = 1.0       # Resource limitation for a male
 RES_F = 6.0       # Resource limitation for a female
 RESS_M = [RES_M] * N_MALES     # Resource limitation vector for all males
@@ -30,8 +30,8 @@ Q_MALES = [Q_MALE] * N_MALES     # Quality vector for maless
 Q_FEMALES = [Q_FEMALE] * N_FEMALES # Quality vector for females 
 TURNS = 500       # Number of turns per trial
 TRIALS = 10        # Number of trials per simulation
-STRAT_M = 6        # Default strategy for males
-STRAT_F = 9        # Default strategy for females 
+STRAT_M = 4        # Default strategy for males
+STRAT_F = 7        # Default strategy for females 
 STRATS_M = [STRAT_M] * N_MALES       # Strategy vector for males
 STRATS_F = [STRAT_F] * N_FEMALES     # Strategy vector for females
 ALPHA = 1.0        # Alpha value scales the adjacency matrix 
@@ -58,7 +58,7 @@ s_func = lambda i : 1 / (1 + np.e ** (-a * (k - i))) ## Functional effect of inv
 r_func = lambda i : c * np.log(1 + i) / (1 + c * np.log(1 + i)) ## Functional effect of male investment on number of eggs
 
 ## Adjacency to reward function for when males can only court one female at a time.
-def adjacency_to_reward3(history, turn = None, params = None):
+def adjacency_to_reward(history, turn = None, params = None):
     #pdb.set_trace()
     params = history.params
 
@@ -66,18 +66,19 @@ def adjacency_to_reward3(history, turn = None, params = None):
     n_males, n_females = history.n_males, history.n_females
     n_birds = n_males + n_females
     current_turn = history.current_turn
-
+    
+    current_adjacency = history.adjacency_matrix[current_turn]
 ## Average past 10 turns, otherwise everything is the same, until I add some fancy search synergy
     if current_turn < 10:
-        current_adjacency = np.mean(history.adjacency_matrix[:current_turn],0)
-        current_investment = np.mean(history.invest_matrix[:current_turn],0)
+        #current_adjacency = np.mean(history.adjacency_matrix[:current_turn],0)
+        mean_investment = np.mean(history.invest_matrix[:current_turn + 1],0)
     else:
-        current_adjacency = np.mean(history.adjacency_matrix[current_turn - 9:current_turn+1],0)
-        current_investment = np.mean(history.invest_matrix[current_turn - 9:current_turn+1],0)
+        #current_adjacency = np.mean(history.adjacency_matrix[current_turn - 9:current_turn+1],0)
+        mean_investment = np.mean(history.invest_matrix[current_turn - 9:current_turn+1],0)
 
     for f in range(n_males,n_males + n_females):
         adjacency_vector = current_adjacency[:,f]
-        investment_vector = current_investment[:,f]
+        investment_vector = mean_investment[:,f]
         prob_offspring = speed_date(adjacency_vector)
         search_success, base_effect_vector, marginal_effect_vector = courtship_effect(investment_vector, adjacency_vector)
         expected_quality, marginal_quality = compare_males(adjacency_vector,history.quality_vector)
@@ -85,7 +86,7 @@ def adjacency_to_reward3(history, turn = None, params = None):
             reward[m,f] = search_success * history.quality_vector[f] *  prob_offspring[m] * history.quality_vector[m]
             #reward[f,m] = history.quality_vector[m] * prob_offspring[m] * base_effect_vector[m] - marginal_effect_vector[m] + marginal_quality[m]
             reward[f,m] = search_success * expected_quality - marginal_effect_vector[m] * marginal_quality[m]
-        reward[f,f] = search_success * expected_quality
+        reward[f,f] = search_success * expected_quality * history.quality_vector[f]
     for m in range(n_males):
         reward[m,m] = np.sum(reward[m,:])
     #pdb.set_trace()
@@ -154,7 +155,7 @@ def adjacency_to_reward2(history, turn, params = None):
             reward[m,f] = search_success * history.quality_vector[f] *  prob_offspring[m] * history.quality_vector[m]
             #reward[f,m] = history.quality_vector[m] * prob_offspring[m] * base_effect_vector[m] - marginal_effect_vector[m] + marginal_quality[m]
             reward[f,m] = search_success * expected_quality - marginal_effect_vector[m] * marginal_quality[m]
-        reward[f,f] = search_success * expected_quality
+        reward[f,f] = search_success * expected_quality * history.quality_vector[f]
     for m in range(n_males):
         reward[m,m] = np.sum(reward[m,:])
     #pdb.set_trace()
@@ -165,7 +166,7 @@ def adjacency_to_reward2(history, turn, params = None):
     return reward
    
      
-def adjacency_to_reward(history, turn, params):
+def adjacency_to_reward3(history, turn, params):
     ## This provides males and females with a reward function on which to base decisions
     # Noteably, this is different from the original implementation, in which the reward *is* the female response
     # Because it needs to update immediately (and really everything should...) it needs the current turn also
@@ -205,11 +206,11 @@ def adjacency_to_reward(history, turn, params):
       
     return reward
 
-def investment_to_adjacency3(history, params = None):
+def investment_to_adjacency(history, params = None):
 ## Decision: Should there be explicit historisis with adjacency? 
     past_adjacency = history.adjacency_matrix[history.current_turn - 1]
     current_investment = history.invest_matrix[history.current_turn]
-    current_adjacency = past_adjacency + current_investment - np.transpose(current_investment)
+    current_adjacency = past_adjacency + (current_investment - np.transpose(current_investment)) * .2
     current_adjacency[history.n_males:,:history.n_males] = current_adjacency[:history.n_males,history.n_males:]
     current_adjacency[current_adjacency < 0] = 0
     current_adjacency[current_adjacency > 1] = 1
@@ -223,7 +224,7 @@ def investment_to_adjacency2(history, params = None):
     return current_adjacency
 
 # Translate investment into adjacency
-def investment_to_adjacency(history, params):
+def investment_to_adjacency3(history, params):
     # Here, investment cuts a fraction of the distance, using new investment matrix
     
     iota = params.iota ## This is a parameter that determines how investment scales
@@ -355,7 +356,7 @@ class Aviary(object):
         
         #current_adjacency = investment_to_adjacency2(history, self.params)
         #history.adjacency_matrix[turn.n] = investment_to_adjacency2(history, self.params)
-        history.adjacency_matrix[turn.n] = investment_to_adjacency3(history, self.params)
+        history.adjacency_matrix[turn.n] = investment_to_adjacency(history, self.params)
         return history.adjacency_matrix[turn.n]
     
     def update_invest(self,history,turn):
@@ -375,7 +376,7 @@ class Aviary(object):
     def update_reward(self,history,turn):
         #new_reward = adjacency_to_reward2(history,turn, self.params)
         #history.reward_matrix[turn.n] = adjacency_to_reward2(history,turn, self.params)
-        history.reward_matrix[turn.n] = adjacency_to_reward3(history,turn, self.params)
+        history.reward_matrix[turn.n] = adjacency_to_reward(history,turn, self.params)
 
         return history.reward_matrix[turn.n]
         
@@ -461,7 +462,7 @@ class History(object):
             #self.adjacency_matrix[0] = np.random.random(np.shape(self.invest_matrix[0])) * (1 - np.identity(self.n_males + self.n_females))
             self.adjacency_matrix[0] = np.zeros_like(self.invest_matrix[0])
             #self.reward_matrix[0] = self.update_reward_hist()
-            self.reward_matrix[0] = adjacency_to_reward3(self)
+            self.reward_matrix[0] = adjacency_to_reward(self)
         else:
             self.invest_matirx[0] = initial_conditions.invest
             self.reward_matrix[0] = initial_conditions.reward

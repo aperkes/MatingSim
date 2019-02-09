@@ -117,8 +117,8 @@ def m_single_strategy(resources,history, num):
     previous_adjacency = history.adjacency_matrix[history.current_turn - 2]
     current_adjacency = history.adjacency_matrix[history.current_turn - 1]
 
-    previous_rel_adj = previous_adjacency[bird_index,history.n_males:] / np.sum(previous_adjacency[:history.n_males,history.n_males:],1)
-    current_rel_adj = current_adjacency[bird_index,history.n_males:] / np.sum(current_adjacency[:history.n_males,history.n_males:],1)
+    previous_rel_adj = previous_adjacency[bird_index,history.n_males:] / (np.sum(previous_adjacency[:history.n_males,history.n_males:],1) + .0001)
+    current_rel_adj = current_adjacency[bird_index,history.n_males:] / (np.sum(current_adjacency[:history.n_males,history.n_males:],1) + .0001)
     delta_inv = current_invest[bird_index,:] - previous_invest[bird_index,:]
     delta_rew = current_reward[bird_index,:] - previous_reward[bird_index,:]
     delta_adj = current_adjacency[bird_index,:] - previous_adjacency[bird_index,:]
@@ -128,23 +128,31 @@ def m_single_strategy(resources,history, num):
     delta_rew = binary_delta(delta_rew)
     delta_rel_adj = binary_delta(delta_rel_adj)
     
-    priority = np.array(current_rel_adj)
-    for f in range(history.n_females):
-        f_max = np.argmax(priority)
-        f_index = f_max + history.n_males
-        if delta_rel_adj[f_max] > 0:
-            future_invest[num,f_index] = previous_invest[num,f_index]
-        elif delta_rel_adj[f_max] < 0:
-            future_invest[num,f_index] = abs(previous_invest[num,f_index] - 1)
-        elif delta_rel_adj[f_max] == 0:
-            if np.random.random() > .5:
-                future_invest[num,f_index] = abs(previous_invest[num,f_index] - 1)
-            else:
+## If all adjacency is 0, just pick someone at random
+    #pdb.set_trace()
+    if sum(current_rel_adj) == 0: 
+        f_index = np.random.randint(history.n_females) + history.n_males
+        future_invest[num,f_index] = 1
+        return future_invest
+## Otherwise, choose wisely:         
+    else: 
+        priority = np.array(current_rel_adj)
+        for f in range(history.n_females):
+            f_max = np.argmax(priority)
+            f_index = f_max + history.n_males
+            if delta_rel_adj[f_max] > 0:
                 future_invest[num,f_index] = previous_invest[num,f_index]
-        if future_invest[num,f_index] > 0:
-            return future_invest
-        else:
-            priority[f_max] = 0 
+            elif delta_rel_adj[f_max] < 0:
+                future_invest[num,f_index] = abs(previous_invest[num,f_index] - 1)
+            elif delta_rel_adj[f_max] == 0:
+                if np.random.random() > .5:
+                    future_invest[num,f_index] = abs(previous_invest[num,f_index] - 1)
+                else:
+                    future_invest[num,f_index] = previous_invest[num,f_index]
+            if future_invest[num,f_index] > 0:
+                return future_invest
+            else:
+                priority[f_max] = -1
     return future_invest
      
 
@@ -284,6 +292,7 @@ def m_classic_strategy(resources, history, num):
 
 ## Strategy for when males can only invest in one female:
 def f_single_strategy(resources, history, num):
+    iMax = .2 ## Investment of maximal reward, this should actually probably be dynamic somehow...
     bird_index = history.n_males + num
     
     n_birds = history.n_males + history.n_females
@@ -294,13 +303,18 @@ def f_single_strategy(resources, history, num):
 
     current_reward = history.reward_matrix[history.current_turn - 1]
     current_adjacency = history.adjacency_matrix[history.current_turn -1]
-     
+    
+    if history.current_turn >= 20:
+        mean_invest = np.mean(history.invest_matrix[history.current_turn-9:history.current_turn+1],0)
+    else:
+        mean_invest = np.mean(history.invest_matrix[:history.current_turn + 1],0)
     for m in range(history.n_males):
         #pdb.set_trace()
         if m != num:
-            future_invest[bird_index,m] = current_adjacency[bird_index,m] + current_invest[m,bird_index]
+            future_invest[bird_index,m] = current_invest[m,bird_index] - (0.06 - mean_invest[m,bird_index]) # let them get close enough to learn to stay at a distance. 
+            #future_invest[bird_index,m] = current_invest[m,bird_index] #just run from everyone else
         elif m == num:
-            future_invest[bird_index,m] = 1 - current_reward[bird_index,m]
+            future_invest[bird_index,m] = (mean_invest[m,bird_index] - iMax) * .5
     if True:
         future_invest[bird_index,history.n_males:] = 0 
         pass
